@@ -1,11 +1,10 @@
 {
-  "name": "servicebus-example",
+  "name": "bunnyhop",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
     "amqplib": "^0.5.1",
-    "lodash": "^4.17.4",
-    "servicebus": "^2.0.10"
+    "lodash": "^4.17.4"
   }
 }
