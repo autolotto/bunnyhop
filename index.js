@@ -21,11 +21,15 @@ const EXCHANGE_TYPE = {
   TOPIC: 'topic'
 };
 
+
 module.exports = function BunnyHop (serviceName, initialOptions = {}) {
   if (!_.isString(serviceName)) {
     throw new TypeError('serviceName argument is required');
   }
 
+  /* Configure default options
+      Note: you can pass in custom options which get exposed through the middleware API
+  */
   _.defaults(initialOptions, {
     url: 'amqp://localhost',
     commandExchangeName: 'commands',
@@ -34,129 +38,78 @@ module.exports = function BunnyHop (serviceName, initialOptions = {}) {
     listenQueueName: `${serviceName}_listen`,
   });
 
+  let plugins;
   const channelPromise = amqp
     .connect(initialOptions.url)
     .catch(err => log.error(`Unable to create connection. ${err.message}`))
-    .then(conn => {
+    .then(connection => {
       log.info(`Connected to amqp host on ${initialOptions.url}. Creating channel.`);
-      return conn.createChannel()
+      return connection.createChannel().then(channel => {
+        plugins = new Plugins({ channel, connection, initialOptions, serviceName });
+        return channel;
+      });
     })
-    .then(ch => {
-      Plugins.init(ch);
-      return ch;
-    })
-    .catch(err => log.error(`Could not connect to amqp url: ${err.message}`));
+    .catch(err => log.error(`Could not open channel on amqp url. Error: ${err.message}`));
 
-
-  return Object.create({
-    use: function (middleware) {
-      Plugins.register(middleware);
+  return {
+    use: function (plugin) {
+      Plugins.register(plugin);
+      return this;
     },
-    send: async function(routingKey, body) {
-      try {
-        const ch = await channelPromise;
-        const exchange = initialOptions.commandExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
-        publish = Plugins.send(({ exchange, routingKey, msg, options }) =>
-          ch.publish(
-            exchange,
-            routingKey,
-            msg,
-            options
-          )
-        );
-        canSendMore = publish()
-          log.debug(`Sent event ${routingKey} with body %s.`, msg);
-      }
-      const boundPublish = _.partial(publish, exchange, routingKey, msg);
-      if (!canSendMore) {
-        // Gotta respect the back pressure
-        ch.once('drain', boundPublish);
-      } else {
-        boundPublish();
-      }
-
-        const msg = new Buffer(JSON.stringify(body));
-
-      } catch (err) {
-        log.error(`Failed to send command ${routingKey}`);
-      }
-
-
-    },
-
-    listen: async function (routingKey, fn) {
+    send: async function (routingKey, message, options) {
       const ch = await channelPromise;
-      const qName = initialOptions.listenQueueName;
-      const exchange = initialOptions.commandExchangeName
-      try {
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
-        await ch.assertQueue(qName, { durable: true });
-        await ch.bindQueue(qName,exchange, routingKey);
-        await ch.prefetch(1);
+      return plugins
+        .send(
+          ch.publish.bind(ch),
+          routingKey, message, options
+        )
+        .catch(err => {
+          log.error(`Failed to send command ${routingKey}`);
+          log.error(err);
+        });
+    },
 
-        async function listenDecorator (msg) {
-          msg.ack  = () => {
-            log.debug('Message acknowledged.');
-            ch.ack(msg);
-          };
-
-          msg.reject  = () =>{
-            log.debug('Message rejected.');
-            ch.reject(msg);
-          };
-
-          await Plugins.preListen(ch, exchange, routingKey, msg, initialOptions);
-          fn(msg);
-          await Plugins.postListen(ch, exchange, routingKey, msg, initialOptions);
-        }
-
-        const { consumerTag } = await ch.consume(myQueue, listenDecorator, { noAck: false });
-
-        log.info(`Consumer ${consumerTag} waiting for commands with topic ${routingKey}.`);
-      } catch (err) {
-        log.error(`Failed while processing event from ${routingKey}: ${err.message}`);
-      }
+    listen: async function (routingKey, listenFn, options) {
+      const ch = await channelPromise;
+      return plugins
+        .listen(
+          ch.consume.bind(ch),
+          routingKey, listenFn, options
+        )
+        .catch( err => {
+          log.error(`Failed while consuming event (via listen) from ${routingKey}`);
+          log.error(err);
+        });
     },
 
 
-    publish: async function (routingKey, msg) {
+    publish: async function (routingKey, message, options) {
       const ch = await channelPromise;
-      const exchange = initialOptions.eventExchangeName;
-      await ch.assertExchange(exchange , EXCHANGE_TYPE.TOPIC);
-      await Plugins.prePublish(ch, exchange, routingKey, msg, initialOptions);
-      await ch.publish(
-        exchange,
-        routingKey,
-        new Buffer(JSON.stringify(msg))
-      );
-      await Plugins.postPublish(ch, exchange, routingKey, msg, initialOptions);
-      log.debug(`Published event ${routingKey} with body %j.`, msg)
+      return plugins
+        .publish(
+          ch.publish.bind(ch),
+          routingKey, message, options
+        )
+        .catch( err => {
+          log.error(`Failed while publishing event (via publish) from ${routingKey}`);
+          log.error(err);
+        });
     },
 
 
-    subscribe: async function (routingKey, fn) {
+    subscribe: async function (routingKey, listenFn, options) {
       const ch = await channelPromise;
-      const qName = initialOptions.subscriptionQueueName;
-      const exchange = initialOptions.eventExchangeName;
-
-      async function subscriptionDecorator (msg) {
-        await Plugins.preSubscribe(ch, exchange, routingKey, msg, initialOptions);
-        fn(msg);
-        await Plugins.postSubscribe(ch, exchange, routingKey, msg, initialOptions);
-      }
-
-      try {
-        await ch.assertExchange(exchange , EXCHANGE_TYPE.TOPIC);
-        await ch.assertQueue(qName);
-        await ch.bindQueue(qName, exchange, routingKey);
-        const { consumerTag } = await ch.consume(qName, subscriptionDecorator, { noAck: true });
-        log.info(`Consumer ${consumerTag} subscribed on topic ${routingKey}.`);
-      } catch (err) {
-        log.error(`Failed while processing event from ${routingKey}: ${err.message}`);
-      }
+      return plugins
+        .subscribe(
+          ch.consume.bind(ch),
+          routingKey, listenFn, options
+        )
+        .catch( err => {
+          log.error(`Failed while consuming event (via subscribe) from ${routingKey}`);
+          log.error(err);
+        });
     }
-  });
+  };
 };
 
 
