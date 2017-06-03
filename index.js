@@ -61,8 +61,8 @@ module.exports = function BunnyHop (serviceName, options = {}) {
       return pluginManager
         .send(routingKey, message, options)
         .catch(err => {
-          log.error(`Failed to publish ${routingKey} via send.`);
-          log.error(err);
+          log.error(`${routingKey} via send failed with: %j`, err);
+          return Promise.reject(err);
         });
     },
 

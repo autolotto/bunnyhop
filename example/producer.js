@@ -3,18 +3,14 @@
  */
 
 const BunnyHop = require('./../index');
-const defaultEngine = require('./../lib/engines/default.engine');
 const log = require('./../lib/plugins/logging.plugin');
-const retry = require('./../lib/plugins/retry.plugin');
 
 const bus = BunnyHop('TestService')
-  .use(retry)
-  .use(log)
-  .engine(defaultEngine);
+  .use(log);
 
 
-let pub = true;
-setInterval(() => {
+let pub = false;
+// setInterval(() => {
   if (pub) {
     bus.publish(
       'event.test.somethingHappened',
@@ -25,6 +21,8 @@ setInterval(() => {
       'cmd.test.doSomething',
       { some: 'thing ' + Date.now() }
     )
+      .then(r => console.log('RESULT ', r))
+      .catch(e => console.error('ERROR', e))
   }
-  pub = !pub;
-}, 100);
+//   // pub = !pub;
+// }, 5000);
