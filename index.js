@@ -48,6 +48,7 @@ module.exports = function BunnyHop (serviceName, options = {}) {
         registeredPlugins = [engine, ...registeredPlugins.slice(1)];
         hasCustomEngine = true;
       }
+      return this;
     },
 
     use (plugin) {

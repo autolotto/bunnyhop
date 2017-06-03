@@ -13,10 +13,9 @@ const bus = Bunny('consumer_two')
   .use(loggingPlugin)
 
 function logMessage (msg) {
-  // msg.ack && msg.ack();
-  console.log(" [x] %s:'%s'",
-    msg.fields.routingKey,
-    msg.content.toString());
+  // console.log(" [x] %s:'%s'",
+  //   msg.fields.routingKey,
+  //   msg.content.toString());
 }
 
 // bus.listen('cmd.order.create', 'order', logMessage);

@@ -11,12 +11,15 @@ const bus = Bunny('consumer_one')
   .use(retry)
   .use(loggingPlugin);
 
-function logMessage (msg) {
-  msg.ack && msg.ack();
-  console.log(" [x] %s:'%s'",
-    msg.fields.routingKey,
-    msg.content.toString());
+function doSomething (msg) {
+  setTimeout(function () {
+    // DO something difficult
+    msg.ack && msg.ack();
+  }, 200);
+  // console.log(" [x] %s:'%s'",
+  //   msg.fields.routingKey,
+  //   msg.content.toString());
 }
 
-bus.listen('cmd.test.doSomething', logMessage);
+bus.listen('cmd.test.doSomething', doSomething);
 // bus.subscribe('event.order.created', logMessage);
