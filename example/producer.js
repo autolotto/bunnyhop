@@ -3,12 +3,14 @@
  */
 
 const BunnyHop = require('./../index');
-const defaultPlugin = require('./../lib/engines/default.engine');
+const defaultEngine = require('./../lib/engines/default.engine');
 const log = require('./../lib/plugins/logging.plugin');
+const retry = require('./../lib/plugins/retry.plugin');
 
 const bus = BunnyHop('TestService')
-  .use(defaultPlugin)
-  .use(log);
+  .use(retry)
+  .use(log)
+  .engine(defaultEngine);
 
 
 let pub = true;
@@ -25,4 +27,4 @@ setInterval(() => {
     )
   }
   pub = !pub;
-}, 1000);
+}, 100);

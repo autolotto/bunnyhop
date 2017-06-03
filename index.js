@@ -2,11 +2,13 @@
  * Created by balmasi on 2017-05-30.
  */
 
-const amqp = require('amqplib');
+
 const _ = require('lodash');
 const debug = require('debug');
 
 const Plugins = require('./lib/plugin');
+const DefaultEngine = require('./lib/engines/default.engine');
+const DefaultConnectionManager = require('./lib/connectionManager');
 
 const log = {
   info: debug('bunnyhop:info'),
@@ -14,15 +16,8 @@ const log = {
   debug: debug('bunnyhop:debug')
 };
 
-const EXCHANGE_TYPE = {
-  DIRECT: 'direct',
-  FANOUT: 'fanout',
-  DEFAULT: '',
-  TOPIC: 'topic'
-};
 
-
-module.exports = function BunnyHop (serviceName, initialOptions = {}) {
+module.exports = function BunnyHop (serviceName, options = {}) {
   if (!_.isString(serviceName)) {
     throw new TypeError('serviceName argument is required');
   }
@@ -30,95 +25,76 @@ module.exports = function BunnyHop (serviceName, initialOptions = {}) {
   /* Configure default options
       Note: you can pass in custom options which get exposed through the middleware API
   */
-  _.defaults(initialOptions, {
+  _.defaults(options, {
     url: 'amqp://localhost',
-    commandExchangeName: 'commands',
-    eventExchangeName: 'events',
-    subscriptionQueueName: `${serviceName}_subscription`,
-    listenQueueName: `${serviceName}_listen`,
+    connectionManager: DefaultConnectionManager
   });
 
-  let plugins;
-  const channelPromise = amqp
-    .connect(initialOptions.url)
-    .catch(err => log.error(`Unable to create connection. ${err.message}`))
-    .then(connection => {
-      log.info(`Connected to amqp host on ${initialOptions.url}. Creating channel.`);
-      return connection.createChannel().then(channel => {
-        plugins = new Plugins({ channel, connection, initialOptions, serviceName });
-        return channel;
+  let pluginManager;
+  let hasCustomEngine = false;
+  let registeredPlugins = [
+    DefaultEngine
+  ];
+
+  const connectedPromise = options.connectionManager(options.url)
+      .then(({ channel, connection }) => {
+        pluginManager = Plugins({ channel, connection, options, serviceName });
+        pluginManager.initalizePlugins(registeredPlugins);
       });
-    })
-    .catch(err => log.error(`Could not open channel on amqp url. Error: ${err.message}`));
 
   return {
-    use: function (plugin) {
-      Plugins.register(plugin);
+    engine (engine) {
+      if (!hasCustomEngine && _.first(registeredPlugins) === DefaultEngine) {
+        registeredPlugins = [engine, ...registeredPlugins.slice(1)];
+        hasCustomEngine = true;
+      }
+    },
+
+    use (plugin) {
+      registeredPlugins.push(plugin);
       return this;
     },
-    send: async function (routingKey, message, options) {
-      const ch = await channelPromise;
-      return plugins
-        .send(
-          ch.publish.bind(ch),
-          routingKey, message, options
-        )
+
+    async send (routingKey, message, options) {
+      await connectedPromise;
+      return pluginManager
+        .send(routingKey, message, options)
         .catch(err => {
-          log.error(`Failed to send command ${routingKey}`);
+          log.error(`Failed to publish ${routingKey} via send.`);
           log.error(err);
         });
     },
 
-    listen: async function (routingKey, listenFn, options) {
-      const ch = await channelPromise;
-      return plugins
-        .listen(
-          ch.consume.bind(ch),
-          routingKey, listenFn, options
-        )
+    async listen (routingKey, listenFn, options) {
+      await connectedPromise;
+      return pluginManager
+        .listen(routingKey, listenFn, options)
         .catch( err => {
-          log.error(`Failed while consuming event (via listen) from ${routingKey}`);
-          log.error(err);
-        });
-    },
-
-
-    publish: async function (routingKey, message, options) {
-      const ch = await channelPromise;
-      return plugins
-        .publish(
-          ch.publish.bind(ch),
-          routingKey, message, options
-        )
-        .catch( err => {
-          log.error(`Failed while publishing event (via publish) from ${routingKey}`);
+          log.error(`Failed to consume ${routingKey} via listen.`);
           log.error(err);
         });
     },
 
 
-    subscribe: async function (routingKey, listenFn, options) {
-      const ch = await channelPromise;
-      return plugins
-        .subscribe(
-          ch.consume.bind(ch),
-          routingKey, listenFn, options
-        )
+    async publish (routingKey, message, options) {
+      await connectedPromise;
+      return pluginManager
+        .publish(routingKey, message, options)
         .catch( err => {
-          log.error(`Failed while consuming event (via subscribe) from ${routingKey}`);
+          log.error(`Failed to publish ${routingKey} via publish.`);
+          log.error(err);
+        });
+    },
+
+
+    async subscribe (routingKey, listenFn, options) {
+      await connectedPromise;
+      return pluginManager
+        .subscribe(routingKey, listenFn, options)
+        .catch( err => {
+          log.error(`Failed to consume ${routingKey} via subscribe.`);
           log.error(err);
         });
     }
   };
 };
-
-
-/*
-
-command:   sendCommand('cream', 'cmd.cashout.create', {});
-Exchange: default -> cream
-cream []
-   -> process reads (workers)
-
-
- */
