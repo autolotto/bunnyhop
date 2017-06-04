@@ -9,6 +9,8 @@ const debug = require('debug');
 const Plugins = require('./lib/plugin');
 const DefaultEngine = require('./lib/engines/default.engine');
 const DefaultConnectionManager = require('./lib/connectionManager');
+const JsonSerialization = require('./lib/serialization/json');
+
 
 const log = {
   info: debug('bunnyhop:info'),
@@ -27,6 +29,7 @@ module.exports = function BunnyHop (serviceName, options = {}) {
   */
   _.defaults(options, {
     url: 'amqp://localhost',
+    serialization: JsonSerialization,
     connectionManager: DefaultConnectionManager
   });
 
