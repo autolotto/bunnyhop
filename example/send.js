@@ -6,8 +6,9 @@ const BunnyHop = require('./../index');
 const { Package, Logging } = require('./../lib/plugins');
 
 const bus = BunnyHop('TestService')
-  .use(Package)
-  .use(Logging);
+  .use(Logging)
+  .use(Package);
+
 
 
 setInterval(
