@@ -259,6 +259,13 @@ function CatPluginInitializer (pluginOptions = { cat: 'white' }) {
 }
 ```
 
+And now when you're instantiating BunnyHop you can call the customizer
+ 
+```javascript
+const bus = BunnyHop('my_service')
+    .use(Plugin1)
+    .use(CatPlugin({ cat: 'green' }))
+````
 
 ### Writing a Custom Engine
 If you choose to write a custom engine, you must do everything required to communicate to the AMQP server.
