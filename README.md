@@ -22,7 +22,9 @@ bus.publish('event.user.created', {
     username: 'goku'
 });
 
-// Tell a service listening on 'cmd.payment.create' to do something. `send` is typically only used for commands, and thus the targer service can reject your command, or send you back a response.
+// Tell a service listening on 'cmd.payment.create' to do something. `send` is 
+// typically only used for commands, and thus the targer service can reject your command, 
+// or send you back a response.
 bus.send('cmd.payment.create', {
     card: '4111-1111-1111-111x'
 }).catch((error) => {
@@ -110,18 +112,18 @@ const bus = BunnyHop('my_service')
     .use(Plugin3);
 ```
 
-For defining an engine other than the default engine, use `useEngine`
+For defining an engine other than the default engine, use `engine`
 
 ```javascript
 
 const bus = BunnyHop('your_service')
     .use(Plugin1)
-    .useEngine(CustomEngine)
+    .engine(CustomEngine)
 
 // ORDER DOES NOT MATTER, YOU CAN ALSO DO
 
 const bus = BunnyHop('your_service')
-    .useEngine(CustomEngine)
+    .engine(CustomEngine)
     .use(Plugin1)
 ```
  
