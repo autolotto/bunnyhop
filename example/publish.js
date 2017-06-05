@@ -3,10 +3,11 @@
  */
 
 const BunnyHop = require('./../index');
-const log = require('./../lib/plugins/logging.plugin');
+const { Logging, Correlator } = BunnyHop.Plugins;
 
 const bus = BunnyHop('TestService')
-  .use(log);
+  .use(Correlator)
+  .use(Logging);
 
 
 setInterval(
