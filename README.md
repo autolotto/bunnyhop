@@ -178,16 +178,16 @@ the given setup will behave as follows:
 
 
 ```
-Plugin1
+Plugin 3
   Plugin 2
-    Plugin 3
+    Plugin 1
        Engine
-    Plugin 3
+    Plugin 1
   Plugin 2
-Plugin 1
+Plugin 3
 ```
 
-If it looks like a stack trace, it's because it is. The pipeline is functionally composed and 
+If it looks like a call stack, it's because it is. The pipeline is functionally composed and 
 plugins have a `next` function to hand off control to the next function in the pipeline 
 (see Custom Plugins) below
 
