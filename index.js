@@ -10,6 +10,7 @@ const Plugins = require('./lib/plugin');
 const DefaultEngine = require('./lib/engines/default.engine');
 const DefaultConnectionManager = require('./lib/connectionManager');
 const JsonSerialization = require('./lib/serialization/json');
+const BuiltInPlugins = require('./lib/plugins');
 
 
 const log = {
@@ -19,7 +20,7 @@ const log = {
 };
 
 
-module.exports = function BunnyHop (serviceName, options = {}) {
+function BunnyHop (serviceName, options = {}) {
   if (!_.isString(serviceName)) {
     throw new TypeError('serviceName argument is required');
   }
@@ -101,4 +102,8 @@ module.exports = function BunnyHop (serviceName, options = {}) {
         });
     }
   };
-};
+}
+
+// Expose the built in plugins
+BunnyHop.Plugins = BuiltInPlugins;
+module.exports = BunnyHop;
