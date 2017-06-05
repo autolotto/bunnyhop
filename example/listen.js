@@ -11,7 +11,7 @@ const bus = BunnyHop('consumer_one')
 function doSomething (msg) {
   return new Promise((resolve, reject) => {
     setTimeout(function () {
-      console.log('Doing some hard work for 2 seconds...');
+      console.log(`${msg.properties.correlationId}: Doing some hard work for 2 seconds...`);
       // After some heavy deliberation
       resolve({
         answer: `The time the message was created was ${new Date(msg.content.when)}`
