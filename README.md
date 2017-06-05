@@ -60,13 +60,23 @@ bus.listen('cmd.payment.create', async (msg) => {
 
 ## Configuration
 
-By default BunnyHop uses default options
+Top-level options exposed by BunnyHop
 
 | options | description | default |
 |---------|-------------|---------|
 | url | AMQP URL to connect to  | `'amqp://localhost'` |
 | serialization | manager to use for serializing and deserializing messages | `require('./lib/serialization/json')` |
 | connectionManager | manager to use for handling connection to AMQP server | `require('./lib/connectionManager')` |
+
+Top-level options exposed by the [Default Engine](#plugins-and-engines):
+
+| options | description | default |
+|---------|-------------|---------|
+| errorFormatter | function to format `Error` into JSON | `error => _.pick(error, ['message', 'code', 'details']` |
+| commandExchangeName | The exchange name to use for `send` | `'commands'` |
+| eventExchangeName | The exchange name to use for publish | `'events'` |
+| subscriptionQueueName | The queue `subscribe` workers get pushed from | `'${serviceName}_subscription'` |
+| listenQueueName | The queue the `listen` workers get pushed from | `'${serviceName}_listen'` |
 
 You can provide custom options when initializing BunnyHop.
 
@@ -99,9 +109,11 @@ const bus = BunnyHop('my_service')
     .use(Plugin2)
     .use(Plugin3);
 ```
+
 For defining an engine other than the default engine, use `useEngine`
 
 ```javascript
+
 const bus = BunnyHop('your_service')
     .use(Plugin1)
     .useEngine(CustomEngine)
@@ -112,6 +124,7 @@ const bus = BunnyHop('your_service')
     .useEngine(CustomEngine)
     .use(Plugin1)
 ```
+ 
 
 ### Included Plugins
 ##### Correlator
@@ -151,3 +164,113 @@ If you use package on the send AND receive side, the receive side will assume th
 Otherwise, it will use `message.content` as the payload.
 **/
 ```
+
+####  A Note on Plugin Ordering
+The plugin ordering when using `use` matters. Given
+```javascript
+const bus = BunnyHop('my_service')
+    .use(Plugin1)
+    .use(Plugin2)
+    .use(Plugin3);
+```
+Assuming all plugins have pre-engine and post-engine behaviour,
+the given setup will behave as follows:
+
+
+```
+Plugin1
+  Plugin 2
+    Plugin 3
+       Engine
+    Plugin 3
+  Plugin 2
+Plugin 1
+```
+
+If it looks like a stack trace, it's because it is. The pipeline is functionally composed and 
+plugins have a `next` function to hand off control to the next function in the pipeline 
+(see Custom Plugins) below
+
+### Writing a Custom Plugin
+It is easy to write a custom plugin. just define a file with the following signature
+
+```javascript
+function MyPlugin (pluginAPI) {
+  const log = pluginAPI.getPluginLogger();
+  // This is pretty useful for debuggin, so make sure to put it in. 
+  log.info('Using My Plugin');
+
+  return {
+    send: next =>
+      (routingKey, message, options) => {
+        // DO SOMETHING BEFORE ONLY
+        return next(routingKey, message, options);
+      },
+    listen: next =>
+      async (routingKey, listenFn, options) => {
+        const returnVal = await next(routingKey, listenFn, options);
+        // DO SOMETHING AFTER ONLY
+        // Use returnVal or fire and forget (no await)
+        return returnVal 
+      },
+    publish: next =>
+      (routingKey, message, options) => {
+        // DO SOMETHING BEFORE
+        next(routingKey, message, options);
+        // DO SOMETHING AFTER
+      }
+      
+    /* subscribe <- Only define the hooks you need! */ 
+  }
+}
+
+module.exports = MyPlugin;
+```
+#### The Plugin API
+You may have notice the plugin gets a `pluginAPI` as the first argument. Every plugin gets that and
+can use it to modify its own behaviour. Valid API functions are
+
+```javascript 1.8
+getChannel();  // Gets the open channel to the AMQP server
+getConnection (); // Gets the open connection to AMQP server
+getInitialOptions (); // Gives you access to the options provided at the top level to bunnyhop
+getServiceName (); // Simply returns the service name bunnyhop was initialized with
+getPluginLogger (); // Gets the logger with `info`, `error`, and `debug` defined
+```
+
+To configure your custom plugin, you can read custom options from the bunnyhop intiialization options 
+using `getInitialOptions ()` just wrap your plugin in another function which configures it like so:
+
+```javascript
+function CatPluginInitializer (pluginOptions = { cat: 'white' }) {
+  return function CatPlugin(pluginAPI) {
+    const log = pluginAPI.getPluginLogger();
+     return {
+       send: next =>
+         (routingKey, message, options) => {
+           if (pluginOptions.cat === 'white') {
+             log.info('Using white cat mode');
+           }
+           return next(routingKey, message,options);
+         }
+       // ... 
+     } 
+  }
+}
+```
+
+
+### Writing a Custom Engine
+If you choose to write a custom engine, you must do everything required to communicate to the AMQP server.
+
+The engine is the last plugin in the chain, so there is no `next` function.
+
+
+Some things to consider for your engine:
+
+* serialization and deserialization
+* Error formatting
+* Options to read (expose) from global BunnyHop options
+* Asserting Channels, Queues, and Exchanges
+
+For More details, see the default engine in `./lib/engines/default.engine.js`
