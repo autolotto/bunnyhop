@@ -34,16 +34,17 @@ function BunnyHop (serviceName, options = {}) {
     connectionManager: DefaultConnectionManager
   });
 
-  let pluginManager;
+
   let hasCustomEngine = false;
   let registeredPlugins = [
     DefaultEngine
   ];
 
-  const connectedPromise = options.connectionManager(options.url)
+  const pluginManagerPromise = options.connectionManager(options.url)
       .then(({ channel, connection }) => {
-        pluginManager = Plugins({ channel, connection, options, serviceName });
+        const pluginManager = Plugins({ channel, connection, options, serviceName });
         pluginManager.initalizePlugins(registeredPlugins);
+        return pluginManager;
       });
 
   return {
@@ -61,8 +62,8 @@ function BunnyHop (serviceName, options = {}) {
     },
 
     async send (routingKey, message, options) {
-      await connectedPromise;
-      return pluginManager
+      const pm = await pluginManagerPromise;
+      return pm
         .send(routingKey, message, options)
         .catch(err => {
           log.error(`${routingKey} via send failed with: %j`, err);
@@ -71,8 +72,8 @@ function BunnyHop (serviceName, options = {}) {
     },
 
     async listen (routingKey, listenFn, options) {
-      await connectedPromise;
-      return pluginManager
+      const pm = await pluginManagerPromise;
+      return pm
         .listen(routingKey, listenFn, options)
         .catch( err => {
           log.error(`Failed to consume ${routingKey} via listen.`);
@@ -82,8 +83,8 @@ function BunnyHop (serviceName, options = {}) {
 
 
     async publish (routingKey, message, options) {
-      await connectedPromise;
-      return pluginManager
+      const pm = await pluginManagerPromise;
+      return pm
         .publish(routingKey, message, options)
         .catch( err => {
           log.error(`Failed to publish ${routingKey} via publish.`);
@@ -93,8 +94,8 @@ function BunnyHop (serviceName, options = {}) {
 
 
     async subscribe (routingKey, listenFn, options) {
-      await connectedPromise;
-      return pluginManager
+      const pm = await pluginManagerPromise;
+      return pm
         .subscribe(routingKey, listenFn, options)
         .catch( err => {
           log.error(`Failed to consume ${routingKey} via subscribe.`);

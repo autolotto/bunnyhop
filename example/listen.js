@@ -3,10 +3,11 @@
  */
 
 const BunnyHop = require('./../index');
-const loggingPlugin = require('./../lib/plugins/logging.plugin');
+const { Package, Logging } = require('./../lib/plugins');
 
 const bus = BunnyHop('consumer_one')
-  .use(loggingPlugin);
+  .use(Package)
+  .use(Logging);
 
 function doSomething (msg) {
   return new Promise((resolve, reject) => {
@@ -14,7 +15,7 @@ function doSomething (msg) {
       console.log(`${msg.properties.correlationId}: Doing some hard work for 2 seconds...`);
       // After some heavy deliberation
       resolve({
-        answer: `The time the message was created was ${new Date(msg.content.when)}`
+        answer: `The time the message was created was ${new Date(msg.content.data.when).toUTCString()}`
       });
       /* Or something went wrong */
       // reject(new Error('This is no good'));

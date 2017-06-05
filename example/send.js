@@ -3,10 +3,11 @@
  */
 
 const BunnyHop = require('./../index');
-const log = require('./../lib/plugins/logging.plugin');
+const { Package, Logging } = require('./../lib/plugins');
 
 const bus = BunnyHop('TestService')
-  .use(log);
+  .use(Package)
+  .use(Logging);
 
 
 setInterval(

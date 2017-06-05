@@ -11,7 +11,6 @@ const bus = BunnyHop('consumer_two')
 
 function logTheTime (msg) {
   console.log(`${msg.properties.correlationId} The time was`, new Date(msg.content.when));
-
 }
 
 bus.subscribe('event.test.somethingHappened', logTheTime);
