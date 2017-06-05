@@ -15,7 +15,7 @@ function doSomething (msg) {
       console.log(`${msg.properties.correlationId}: Doing some hard work for 2 seconds...`);
       // After some heavy deliberation
       resolve({
-        answer: `The time the message was created was ${new Date(msg.content.data.when).toUTCString()}`
+        answer: `The time the message was created was ${new Date(msg.content.data.when).toISOString()}`
       });
       /* Or something went wrong */
       // reject(new Error('This is no good'));
