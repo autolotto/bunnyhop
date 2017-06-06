@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "release": "np"
+  },
   "dependencies": {
     "amqplib": "^0.5.1",
     "debug": "^2.6.8",
     "lodash": "^4.17.4",
     "uuid": "^3.0.1"
+  },
+  "devDependencies": {
+    "np": "^2.15.0"
   }
 }
