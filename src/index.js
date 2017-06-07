@@ -6,11 +6,11 @@
 const _ = require('lodash');
 const debug = require('debug');
 
-const Plugins = require('./src/lib/plugin');
-const DefaultEngine = require('./src/lib/engines/default.engine');
-const DefaultConnectionManager = require('./src/lib/connectionManager');
-const JsonSerialization = require('./src/lib/serialization/json');
-const BuiltInPlugins = require('./src/lib/plugins');
+const Plugins = require('./lib/plugin');
+const DefaultEngine = require('./lib/engines/default.engine.js');
+const DefaultConnectionManager = require('./lib/connectionManager');
+const JsonSerialization = require('./lib/serialization/json');
+const BuiltInPlugins = require('./lib/plugins/index');
 
 
 const log = {
