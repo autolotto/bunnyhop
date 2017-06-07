@@ -3,7 +3,7 @@
  */
 
 const BunnyHop = require('./../index');
-const { Package, Logging } = require('./../lib/plugins');
+const { Package, Logging } = require('././plugins');
 
 const bus = BunnyHop('TestService')
   .use(Logging)

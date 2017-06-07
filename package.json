@@ -1,10 +1,18 @@
 {
   "name": "@autolotto/bunnyhop",
   "version": "1.0.2",
-  "main": "index.js",
+  "main": "build/index.js",
   "license": "MIT",
   "scripts": {
-    "release": "np"
+    "release": "np",
+    "build": "babel src -s -d build --ignore src/example",
+    "build:clean": "rm -rf build",
+    "dev": "watch 'npm run build' src"
+  },
+  "babel": {
+    "presets": [
+      "env"
+    ]
   },
   "dependencies": {
     "amqplib": "^0.5.1",
@@ -13,6 +21,9 @@
     "uuid": "^3.0.1"
   },
   "devDependencies": {
-    "np": "^2.15.0"
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.5.2",
+    "np": "^2.15.0",
+    "watch": "^1.0.2"
   }
 }
