@@ -48,7 +48,7 @@ function BunnyHop (serviceName, options = {}) {
       });
 
   return {
-    engine (engine) {
+    engine: function engine (engine) {
       if (!hasCustomEngine && _.first(registeredPlugins) === DefaultEngine) {
         registeredPlugins = [engine, ...registeredPlugins.slice(1)];
         hasCustomEngine = true;
@@ -56,12 +56,12 @@ function BunnyHop (serviceName, options = {}) {
       return this;
     },
 
-    use (plugin) {
+    use: function use (plugin) {
       registeredPlugins.push(plugin);
       return this;
     },
 
-    async send (routingKey, message, options) {
+    send: async (routingKey, message, options) => {
       const pm = await pluginManagerPromise;
       return pm
         .send(routingKey, message, options)
@@ -71,7 +71,7 @@ function BunnyHop (serviceName, options = {}) {
         });
     },
 
-    async listen (routingKey, listenFn, options) {
+    listen: async (routingKey, listenFn, options) => {
       const pm = await pluginManagerPromise;
       return pm
         .listen(routingKey, listenFn, options)
@@ -82,7 +82,7 @@ function BunnyHop (serviceName, options = {}) {
     },
 
 
-    async publish (routingKey, message, options) {
+    publish: async (routingKey, message, options) => {
       const pm = await pluginManagerPromise;
       return pm
         .publish(routingKey, message, options)

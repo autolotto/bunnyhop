@@ -6,8 +6,8 @@ const BunnyHop = require('./../index');
 const { Logging, Correlator } = BunnyHop.Plugins;
 
 const bus = BunnyHop('consumer_two')
-  .use(Correlator)
-  .use(Logging);
+  .use(Logging)
+  .use(Correlator);
 
 function logTheTime (msg) {
   console.log(`${msg.properties.correlationId} The time was`, new Date(msg.content.when));
