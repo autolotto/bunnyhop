@@ -44,7 +44,7 @@ module.exports = async function connect (amqpUrl) {
       connection.close();
     }
     if (channel) {
-      connection.close();
+      channel.close();
     }
   });
 
