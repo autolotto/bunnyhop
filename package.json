@@ -1,10 +1,10 @@
 {
   "name": "@autolotto/bunnyhop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "main": "build/index.js",
   "license": "MIT",
   "scripts": {
-    "release": "np",
+    "release": "yarn build:clean && yarn build && np",
     "build": "babel src -s -d build --ignore src/example",
     "build:clean": "rm -rf build",
     "dev": "watch 'npm run build' src"
