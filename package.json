@@ -11,11 +11,19 @@
   },
   "babel": {
     "presets": [
-      "env"
+      [
+        "env",
+        {
+          "targets": {
+            "node": "6.5.0"
+          }
+        }
+      ]
     ]
   },
   "dependencies": {
     "amqplib": "^0.5.1",
+    "death": "^1.1.0",
     "debug": "^2.6.8",
     "lodash": "^4.17.4",
     "uuid": "^3.0.1"

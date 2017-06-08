@@ -3,6 +3,7 @@
  */
 const amqp = require('amqplib');
 const debug = require('debug');
+const ON_DEATH = require('death');
 
 const log = {
   info: debug('bunnyhop:info')
@@ -35,6 +36,18 @@ module.exports = async function connect (amqpUrl) {
     .catch(err => {
       throw new Error(`Could not create channel. Reason: ${err.message}`);
     });
+
+  ON_DEATH(function (signal, error) {
+    const message = `Stopping all AMQP connections due to ${signal ? `${signal} signal` : 'error'}.`;
+    log.info(message);
+    if (connection) {
+      connection.close();
+    }
+    if (channel) {
+      connection.close();
+    }
+  });
+
 
   return {
     connection,
