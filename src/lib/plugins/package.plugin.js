@@ -45,7 +45,7 @@ function packageIncomingMessage (message, routingKey) {
       content: {
         dateProcessed: (new Date()).toISOString(),
         data: _.omit(data, ['type']),
-        type: routingKey,
+        type: _.get(message, 'fields.routingKey'),
         dateIssued
       }
     },
