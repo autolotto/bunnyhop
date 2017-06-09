@@ -55,7 +55,7 @@ function DefaultEngine (pluginAPI) {
         if (options.sync) {
           const { queue } = await ch.assertQueue('', { exclusive: true });
           return new Promise(async (resolve, reject) => {
-            const uid = uuid.v4();
+            const uid = options.correlationId || uuid.v4();
 
             function maybeAnswer (msg) {
               if (msg.properties.correlationId === uid) {
