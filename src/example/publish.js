@@ -2,6 +2,8 @@
  * Created by balmasi on 2017-06-03.
  */
 
+const ON_DEATH = require('death');
+
 const BunnyHop = require('../index');
 const { Logging, Correlator } = BunnyHop.Plugins;
 

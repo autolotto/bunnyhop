@@ -20,8 +20,8 @@ function DefaultEngine (pluginAPI) {
 
   const defaults = {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
-    topicExchangeName: 'amqp.topic',
-    fanoutExchangeName: 'amqp.fanout'
+    topicExchangeName: 'topic_exchange',
+    fanoutExchangeName: 'fanout_exchange'
   };
 
   const engineOptions = _.defaults(
@@ -34,8 +34,6 @@ function DefaultEngine (pluginAPI) {
   return {
     send:
       async (routingKey, message, options = {}) => {
-        // Send request
-        const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
         const exchange = engineOptions.topicExchangeName;
         const msgBuffer = new Buffer(JSON.stringify(message));
         await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
@@ -44,11 +42,15 @@ function DefaultEngine (pluginAPI) {
           { appId: serviceName },
           options,
           {
+            persistent: true,
             headers: {
               'x-isRpc': Boolean(options.sync)
             }
           }
         );
+
+        // Send request
+        const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
 
         // Response Listen queue
         if (options.sync) {
@@ -139,34 +141,65 @@ function DefaultEngine (pluginAPI) {
 
     publish:
       async (routingKey, message, options) => {
-        const exchange = engineOptions.eventExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
-        const msgBuffer = serialize(message);
-        const modifiedOptions = Object.assign(
+        const fanoutExchange = engineOptions.fanoutExchangeName;
+        const topicExchange = engineOptions.topicExchangeName;
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
+        const publishOptions = _.merge(
           { appId: serviceName },
           options,
-          { persistent: true }
+          { persistent: true, noAck: false  }
         );
-        return ch.publish(exchange, routingKey, msgBuffer, modifiedOptions);
+
+        const msgBuffer = serialize(message);
+        return ch.publish(topicExchange, routingKey, msgBuffer, publishOptions);
       },
 
     subscribe:
       async (routingKey, listenFn, options) => {
-        const qName = engineOptions.subscriptionQueueName;
-        const exchange = engineOptions.eventExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
-        await ch.assertQueue(qName);
-        await ch.bindQueue(qName, exchange, routingKey);
+        const topicExchange = engineOptions.topicExchangeName;
+        const fanoutExchange = engineOptions.fanoutExchangeName;
+        const subscribeOptions =  _.merge(
+          { appId: serviceName, autoAck: true },
+          options,
+          { noAck: false }
+        );
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
+        // destination, source, pattern
+        await ch.bindExchange(fanoutExchange, topicExchange, routingKey);
+        // This creates a queue per every listen pattern
+        const qPrefix = serviceName !== subscribeOptions.appId ?
+          `${serviceName}_${appId}` :
+          serviceName;
+        const qName = `${qPrefix}_subscribe:${uuid.v4()}`;
+        // durable == exclusive to this process + doesn't survive restarts
+        await ch.assertQueue(qName, { durable: false });
+        await ch.bindQueue(qName, topicExchange, routingKey);
 
-        function deserializeMessage (msg) {
+        function transformMessage (msg) {
+          if (subscribeOptions.autoAck) {
+            log.debug('Message Auto-Acknowledged');
+            ch.ack(msg);
+          } else  {
+            msg.ack  = () => {
+              log.debug('Message acknowledged.');
+              ch.ack(msg);
+            };
+
+            msg.reject  = () => {
+              log.debug('Message rejected.');
+              ch.reject(msg);
+            };
+          }
           msg.content = deserialize(msg.content);
           return listenFn(msg);
         }
 
         return ch.consume(
           qName,
-          deserializeMessage,
-          Object.assign({}, options, { noAck: true })
+          transformMessage,
+          subscribeOptions
         );
       },
   };
