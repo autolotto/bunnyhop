@@ -75,10 +75,8 @@ Top-level options exposed by the [Default Engine](#plugins-and-engines):
 | options | description | default |
 |---------|-------------|---------|
 | errorFormatter | function to format `Error` into JSON | `error => _.pick(error, ['message', 'code', 'details']` |
-| commandExchangeName | The exchange name to use for `send` | `'commands'` |
-| eventExchangeName | The exchange name to use for publish | `'events'` |
-| subscriptionQueueName | The queue `subscribe` workers get pushed from | `'${serviceName}_subscription'` |
-| listenQueueName | The queue the `listen` workers get pushed from | `'${serviceName}_listen'` |
+| topicExchangeName | The exchange name to use for `send` | `'amqp.topic'` |
+| fanoutExchangeName | The exchange name to use for publish | `'amqp.fanout'` |
 
 You can provide custom options when initializing BunnyHop.
 

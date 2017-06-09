@@ -20,10 +20,8 @@ function DefaultEngine (pluginAPI) {
 
   const defaults = {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
-    commandExchangeName: 'commands',
-    eventExchangeName: 'events',
-    subscriptionQueueName: `${serviceName}_subscription`,
-    listenQueueName: `${serviceName}_listen`,
+    topicExchangeName: 'amqp.topic',
+    fanoutExchangeName: 'amqp.fanout'
   };
 
   const engineOptions = _.defaults(
@@ -38,9 +36,9 @@ function DefaultEngine (pluginAPI) {
       async (routingKey, message, options = {}) => {
         // Send request
         const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
-        const exchange = engineOptions.commandExchangeName;
+        const exchange = engineOptions.topicExchangeName;
         const msgBuffer = new Buffer(JSON.stringify(message));
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
+        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
         // Generate custom publish options here (like custom headers)
         const commonOptions = _.merge(
           { appId: serviceName },
@@ -80,21 +78,26 @@ function DefaultEngine (pluginAPI) {
 
     listen:
       async (routingKey, listenFn, options = {}) => {
-        _.defaults(options, {
-          autoAck: true
-        });
-        const qName = engineOptions.listenQueueName;
-        const exchange = engineOptions.commandExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
+        const listenOptions = _.merge(
+          { appId: serviceName, autoAck: true },
+          options,
+          { noAck: false }
+        );
+        // This creates a queue per every listen pattern
+        const qPrefix = serviceName !== listenOptions.appId ?
+          `${serviceName}_${appId}` :
+          serviceName;
+        const qName = `${qPrefix}_listen:${routingKey}`;
+        const topicExchange = engineOptions.topicExchangeName;
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
         await ch.assertQueue(qName, { durable: true });
-        await ch.bindQueue(qName, exchange, routingKey);
+        await ch.bindQueue(qName, topicExchange, routingKey);
         await ch.prefetch(1);
 
         async function getResponse(reqMsg) {
           let result;
           let error;
-
-          if (options.autoAck) {
+          if (listenOptions.autoAck) {
             log.debug('Message Auto-Acknowledged');
             ch.ack(reqMsg);
           } else  {
@@ -130,7 +133,7 @@ function DefaultEngine (pluginAPI) {
         return ch.consume(
           qName,
           getResponse,
-          Object.assign({}, options, { noAck: false })
+          listenOptions
         );
       },
 

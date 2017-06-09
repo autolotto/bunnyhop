@@ -24,7 +24,7 @@ setInterval(
       .then(r => console.log('RESULT ', r))
       .catch(e => console.error('ERROR', e))
   },
-  8000
+  4000
 );
 
 ON_DEATH(() => {
