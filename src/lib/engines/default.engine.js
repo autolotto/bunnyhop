@@ -37,35 +37,44 @@ function DefaultEngine (pluginAPI) {
     send:
       async (routingKey, message, options = {}) => {
         // Send request
+        const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
         const exchange = engineOptions.commandExchangeName;
         const msgBuffer = new Buffer(JSON.stringify(message));
         await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
-
-        // Response Listen queue
-        const { queue } = await ch.assertQueue('', { exclusive: true });
-        return new Promise(async (resolve, reject) => {
-          const uid = uuid.v4();
-
-          function maybeAnswer (msg) {
-            if (msg.properties.correlationId === uid) {
-
-              const { result, error } = deserialize(msg.content);
-              return _.isUndefined(result) ? reject(error) : resolve(result);
+        // Generate custom publish options here (like custom headers)
+        const commonOptions = _.merge(
+          options,
+          {
+            headers: {
+              'x-isRpc': Boolean(options.sync)
             }
           }
-          await ch.consume(queue, maybeAnswer, { noAck: true });
-          const modifiedOptions = Object.assign({}, options, {
-            replyTo: queue,
-            correlationId: uid,
-            persistent: true
+        );
+
+        // Response Listen queue
+        if (options.sync) {
+          const { queue } = await ch.assertQueue('', { exclusive: true });
+          return new Promise(async (resolve, reject) => {
+            const uid = uuid.v4();
+
+            function maybeAnswer (msg) {
+              if (msg.properties.correlationId === uid) {
+
+                const { result, error } = deserialize(msg.content);
+                return _.isUndefined(result) ? reject(error) : resolve(result);
+              }
+            }
+            await ch.consume(queue, maybeAnswer, { noAck: true });
+            const modifiedOptions = Object.assign({}, commonOptions, {
+              replyTo: queue,
+              correlationId: uid,
+              persistent: true
+            });
+            publishWithOptions(modifiedOptions);
           });
-          ch.publish(
-            exchange,
-            routingKey,
-            msgBuffer,
-            modifiedOptions
-          );
-        });
+        } else {
+          publishWithOptions(commonOptions)
+        }
       },
 
     listen:
@@ -79,8 +88,6 @@ function DefaultEngine (pluginAPI) {
         await ch.assertQueue(qName, { durable: true });
         await ch.bindQueue(qName, exchange, routingKey);
         await ch.prefetch(1);
-
-
 
         async function getResponse(reqMsg) {
           let result;
