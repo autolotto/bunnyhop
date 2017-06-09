@@ -2,7 +2,7 @@
  * Created by balmasi on 2017-05-30.
  */
 
-const BunnyHop = require('./../index');
+const BunnyHop = require('../index');
 const { Logging, Correlator } = BunnyHop.Plugins;
 
 const bus = BunnyHop('consumer_two')
