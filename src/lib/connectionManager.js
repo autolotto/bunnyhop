@@ -6,8 +6,18 @@ const debug = require('debug');
 const ON_DEATH = require('death');
 
 const log = {
-  info: debug('bunnyhop:info')
+  info: debug('bunnyhop:info'),
+  warn: debug('bunnyhop:warn')
 };
+
+async function close (closable) {
+  try {
+    await closable.close();
+  } catch (err) {
+    log.warn(`Having trouble closing connection: ${err.message}`);
+    /* catch errors */
+  }
+}
 
 /**
  * Connection function to AMQP host
@@ -40,11 +50,11 @@ module.exports = async function connect (amqpUrl) {
   ON_DEATH(function (signal, error) {
     const message = `Stopping all AMQP connections due to ${signal ? `${signal} signal` : 'error'}.`;
     log.info(message);
-    if (connection) {
-      connection.close();
-    }
     if (channel) {
-      channel.close();
+      close(channel);
+    }
+    if (connection) {
+      close(connection);
     }
   });
 

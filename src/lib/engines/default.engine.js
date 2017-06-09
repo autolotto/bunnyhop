@@ -20,10 +20,8 @@ function DefaultEngine (pluginAPI) {
 
   const defaults = {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
-    commandExchangeName: 'commands',
-    eventExchangeName: 'events',
-    subscriptionQueueName: `${serviceName}_subscription`,
-    listenQueueName: `${serviceName}_listen`,
+    topicExchangeName: 'topic_exchange',
+    fanoutExchangeName: 'fanout_exchange'
   };
 
   const engineOptions = _.defaults(
@@ -36,57 +34,72 @@ function DefaultEngine (pluginAPI) {
   return {
     send:
       async (routingKey, message, options = {}) => {
-        // Send request
-        const exchange = engineOptions.commandExchangeName;
+        const exchange = engineOptions.topicExchangeName;
         const msgBuffer = new Buffer(JSON.stringify(message));
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
-
-        // Response Listen queue
-        const { queue } = await ch.assertQueue('', { exclusive: true });
-        return new Promise(async (resolve, reject) => {
-          const uid = uuid.v4();
-
-          function maybeAnswer (msg) {
-            if (msg.properties.correlationId === uid) {
-
-              const { result, error } = deserialize(msg.content);
-              return _.isUndefined(result) ? reject(error) : resolve(result);
+        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
+        // Generate custom publish options here (like custom headers)
+        const commonOptions = _.merge(
+          { appId: serviceName },
+          options,
+          {
+            persistent: true,
+            headers: {
+              'x-isRpc': Boolean(options.sync)
             }
           }
-          await ch.consume(queue, maybeAnswer, { noAck: true });
-          const modifiedOptions = Object.assign({}, options, {
-            replyTo: queue,
-            correlationId: uid,
-            persistent: true
+        );
+
+        // Send request
+        const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
+
+        // Response Listen queue
+        if (options.sync) {
+          const { queue } = await ch.assertQueue('', { exclusive: true });
+          return new Promise(async (resolve, reject) => {
+            const uid = options.correlationId || uuid.v4();
+
+            function maybeAnswer (msg) {
+              if (msg.properties.correlationId === uid) {
+
+                const { result, error } = deserialize(msg.content);
+                return _.isUndefined(result) ? reject(error) : resolve(result);
+              }
+            }
+            await ch.consume(queue, maybeAnswer, { noAck: true });
+            const modifiedOptions = Object.assign({}, commonOptions, {
+              replyTo: queue,
+              correlationId: uid,
+              persistent: true
+            });
+            publishWithOptions(modifiedOptions);
           });
-          ch.publish(
-            exchange,
-            routingKey,
-            msgBuffer,
-            modifiedOptions
-          );
-        });
+        } else {
+          publishWithOptions(commonOptions)
+        }
       },
 
     listen:
       async (routingKey, listenFn, options = {}) => {
-        _.defaults(options, {
-          autoAck: true
-        });
-        const qName = engineOptions.listenQueueName;
-        const exchange = engineOptions.commandExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
+        const listenOptions = _.merge(
+          { appId: serviceName, autoAck: true },
+          options,
+          { noAck: false }
+        );
+        // This creates a queue per every listen pattern
+        const qPrefix = serviceName !== listenOptions.appId ?
+          `${serviceName}_${appId}` :
+          serviceName;
+        const qName = `${qPrefix}_listen:${routingKey}`;
+        const topicExchange = engineOptions.topicExchangeName;
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
         await ch.assertQueue(qName, { durable: true });
-        await ch.bindQueue(qName, exchange, routingKey);
+        await ch.bindQueue(qName, topicExchange, routingKey);
         await ch.prefetch(1);
-
-
 
         async function getResponse(reqMsg) {
           let result;
           let error;
-
-          if (options.autoAck) {
+          if (listenOptions.autoAck) {
             log.debug('Message Auto-Acknowledged');
             ch.ack(reqMsg);
           } else  {
@@ -122,36 +135,71 @@ function DefaultEngine (pluginAPI) {
         return ch.consume(
           qName,
           getResponse,
-          Object.assign({}, options, { noAck: false })
+          listenOptions
         );
       },
 
     publish:
       async (routingKey, message, options) => {
-        const exchange = engineOptions.eventExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
+        const fanoutExchange = engineOptions.fanoutExchangeName;
+        const topicExchange = engineOptions.topicExchangeName;
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
+        const publishOptions = _.merge(
+          { appId: serviceName },
+          options,
+          { persistent: true, noAck: false  }
+        );
+
         const msgBuffer = serialize(message);
-        const modifiedOptions = Object.assign({}, options, { persistent: true });
-        return ch.publish(exchange, routingKey, msgBuffer, modifiedOptions);
+        return ch.publish(topicExchange, routingKey, msgBuffer, publishOptions);
       },
 
     subscribe:
       async (routingKey, listenFn, options) => {
-        const qName = engineOptions.subscriptionQueueName;
-        const exchange = engineOptions.eventExchangeName;
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
-        await ch.assertQueue(qName);
-        await ch.bindQueue(qName, exchange, routingKey);
+        const topicExchange = engineOptions.topicExchangeName;
+        const fanoutExchange = engineOptions.fanoutExchangeName;
+        const subscribeOptions =  _.merge(
+          { appId: serviceName, autoAck: true },
+          options,
+          { noAck: false }
+        );
+        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
+        // destination, source, pattern
+        await ch.bindExchange(fanoutExchange, topicExchange, routingKey);
+        // This creates a queue per every listen pattern
+        const qPrefix = serviceName !== subscribeOptions.appId ?
+          `${serviceName}_${appId}` :
+          serviceName;
+        const qName = `${qPrefix}_subscribe:${uuid.v4()}`;
+        // durable == exclusive to this process + doesn't survive restarts
+        await ch.assertQueue(qName, { durable: false });
+        await ch.bindQueue(qName, topicExchange, routingKey);
 
-        function deserializeMessage (msg) {
+        function transformMessage (msg) {
+          if (subscribeOptions.autoAck) {
+            log.debug('Message Auto-Acknowledged');
+            ch.ack(msg);
+          } else  {
+            msg.ack  = () => {
+              log.debug('Message acknowledged.');
+              ch.ack(msg);
+            };
+
+            msg.reject  = () => {
+              log.debug('Message rejected.');
+              ch.reject(msg);
+            };
+          }
           msg.content = deserialize(msg.content);
           return listenFn(msg);
         }
 
         return ch.consume(
           qName,
-          deserializeMessage,
-          Object.assign({}, options, { noAck: true })
+          transformMessage,
+          subscribeOptions
         );
       },
   };
