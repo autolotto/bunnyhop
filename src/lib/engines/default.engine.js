@@ -43,6 +43,7 @@ function DefaultEngine (pluginAPI) {
         await ch.assertExchange(exchange, EXCHANGE_TYPE.DIRECT);
         // Generate custom publish options here (like custom headers)
         const commonOptions = _.merge(
+          { appId: serviceName },
           options,
           {
             headers: {
@@ -138,7 +139,11 @@ function DefaultEngine (pluginAPI) {
         const exchange = engineOptions.eventExchangeName;
         await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
         const msgBuffer = serialize(message);
-        const modifiedOptions = Object.assign({}, options, { persistent: true });
+        const modifiedOptions = Object.assign(
+          { appId: serviceName },
+          options,
+          { persistent: true }
+        );
         return ch.publish(exchange, routingKey, msgBuffer, modifiedOptions);
       },
 
