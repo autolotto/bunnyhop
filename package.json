@@ -5,9 +5,11 @@
   "license": "MIT",
   "scripts": {
     "release": "yarn build:clean && yarn build && np",
-    "build": "babel src -s -d build --ignore src/example",
+    "build": "babel src -s -d build --ignore src/example,src/**/*.test.js",
     "build:clean": "rm -rf build",
-    "dev": "watch 'npm run build' src"
+    "dev": "watch 'npm run build' src",
+    "test": "ava -v -T 5000",
+    "test:watch": "npm run test -- -w"
   },
   "babel": {
     "presets": [
@@ -21,6 +23,10 @@
       ]
     ]
   },
+  "ava": {
+    "require": "babel-register",
+    "babel": "inherit"
+  },
   "dependencies": {
     "amqplib": "^0.5.1",
     "death": "^1.1.0",
@@ -29,9 +35,13 @@
     "uuid": "^3.0.1"
   },
   "devDependencies": {
+    "ava": "^0.19.1",
     "babel-cli": "^6.24.1",
     "babel-preset-env": "^1.5.2",
+    "babel-register": "^6.24.1",
+    "bluebird": "^3.5.0",
     "np": "^2.15.0",
+    "testdouble": "^3.0.0",
     "watch": "^1.0.2"
   }
 }

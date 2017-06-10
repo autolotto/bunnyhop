@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const debug = require('debug');
 const uuid = require('uuid');
+const { EventEmitter } = require('events');
 
 const { EXCHANGE_TYPE } = require('../amqp');
 
@@ -20,8 +21,9 @@ function DefaultEngine (pluginAPI) {
 
   const defaults = {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
-    topicExchangeName: 'topic_exchange',
-    fanoutExchangeName: 'fanout_exchange'
+    topicExchangeName: 'amq.topic',
+    directExchangeName: 'amq.direct',
+    rpcReplyQueue: `${serviceName}_replies`
   };
 
   const engineOptions = _.defaults(
@@ -31,12 +33,31 @@ function DefaultEngine (pluginAPI) {
 
   const { deserialize, serialize } = engineOptions.serialization;
 
+  const directExchange = engineOptions.directExchangeName;
+  log.debug(`Asserting ${EXCHANGE_TYPE.DIRECT} exchange "${directExchange}"`);
+  ch.assertExchange(directExchange, EXCHANGE_TYPE.DIRECT);
+
+
+  const REPLY_QUEUE = engineOptions.rpcReplyQueue;
+  ch.responseEmitter = new EventEmitter();
+  ch.responseEmitter.setMaxListeners(0);
+  log.debug(`Asserting durable queue "${REPLY_QUEUE}" for RPC calls.`);
+  ch.assertQueue(REPLY_QUEUE, { durable: true });
+  ch.consume(REPLY_QUEUE,
+    msg => {
+      ch.responseEmitter.emit(
+        msg.properties.correlationId,
+        msg.content
+      )
+    }
+    ,{ noAck: true }
+  );
+
   return {
     send:
       async (routingKey, message, options = {}) => {
-        const exchange = engineOptions.topicExchangeName;
         const msgBuffer = new Buffer(JSON.stringify(message));
-        await ch.assertExchange(exchange, EXCHANGE_TYPE.TOPIC);
+
         // Generate custom publish options here (like custom headers)
         const commonOptions = _.merge(
           { appId: serviceName },
@@ -49,56 +70,57 @@ function DefaultEngine (pluginAPI) {
           }
         );
 
-        // Send request
-        const publishWithOptions = opts => ch.publish(exchange, routingKey, msgBuffer, opts);
+        const sendWithOptions = (opt = {}) =>
+          ch.publish(directExchange, routingKey, msgBuffer, _.merge(commonOptions, opt));
 
         // Response Listen queue
         if (options.sync) {
-          const { queue } = await ch.assertQueue('', { exclusive: true });
           return new Promise(async (resolve, reject) => {
             const uid = options.correlationId || uuid.v4();
-
-            function maybeAnswer (msg) {
-              if (msg.properties.correlationId === uid) {
-
-                const { result, error } = deserialize(msg.content);
-                return _.isUndefined(result) ? reject(error) : resolve(result);
-              }
-            }
-            await ch.consume(queue, maybeAnswer, { noAck: true });
-            const modifiedOptions = Object.assign({}, commonOptions, {
-              replyTo: queue,
-              correlationId: uid,
-              persistent: true
+            const handleResponsePromise = (msgContent) => {
+              const { result, error } = deserialize(msgContent);
+              return !_.isUndefined(error) ? reject(error) : resolve(result);
+            };
+            // listen for the content emitted on the correlationId event
+            ch.responseEmitter.once(uid, handleResponsePromise);
+            sendWithOptions({
+              replyTo: REPLY_QUEUE,
+              correlationId: uid
             });
-            publishWithOptions(modifiedOptions);
-          });
-        } else {
-          publishWithOptions(commonOptions)
+          })
         }
+
+        sendWithOptions();
+
       },
 
     listen:
       async (routingKey, listenFn, options = {}) => {
+        if ((/[*#]/g).test(routingKey)) {
+          throw new TypeError('Routing key cannot contain * or # for "listen".');
+        }
         const listenOptions = _.merge(
           { appId: serviceName, autoAck: true },
           options,
           { noAck: false }
         );
         // This creates a queue per every listen pattern
-        const qPrefix = serviceName !== listenOptions.appId ?
-          `${serviceName}_${appId}` :
-          serviceName;
-        const qName = `${qPrefix}_listen:${routingKey}`;
-        const topicExchange = engineOptions.topicExchangeName;
-        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+        const qName = routingKey;
+        const directExchange = engineOptions.directExchangeName;
+        log.debug(`Listen: Asserting ${EXCHANGE_TYPE.DIRECT} exchange "${directExchange}"`);
+        await ch.assertExchange(directExchange, EXCHANGE_TYPE.DIRECT);
+        log.debug(`Listen: Asserting durable queue "${qName}"`);
         await ch.assertQueue(qName, { durable: true });
-        await ch.bindQueue(qName, topicExchange, routingKey);
+        log.debug(`Listen: Binding queue "${qName}" to exchange "${directExchange}" with ${routingKey}`);
+        await ch.bindQueue(qName, directExchange, routingKey);
+        log.debug(`Listen: Setting prefetch to 1`);
         await ch.prefetch(1);
 
         async function getResponse(reqMsg) {
           let result;
           let error;
+          const isRpc = _.get(reqMsg, 'properties.headers["x-isRpc"]', false);
+
           if (listenOptions.autoAck) {
             log.debug('Message Auto-Acknowledged');
             ch.ack(reqMsg);
@@ -116,20 +138,23 @@ function DefaultEngine (pluginAPI) {
 
           reqMsg.content = deserialize(reqMsg.content);
 
-          try {
-            result = await listenFn(reqMsg);
-          } catch (err) {
-            error = engineOptions.errorFormatter(err);
+          const listenerReturn = listenFn(reqMsg);
+          if (isRpc) {
+            try {
+              result = await listenerReturn;
+            } catch (err) {
+              error = engineOptions.errorFormatter(err);
+            }
+
+            const response = { result, error };
+            const { replyTo, correlationId } = reqMsg.properties;
+            await ch.sendToQueue(
+              replyTo,
+              serialize(response),
+              { correlationId }
+            );
           }
 
-          const response = { result, error };
-          const { replyTo, correlationId } = reqMsg.properties;
-
-          await ch.sendToQueue(
-            replyTo,
-            serialize(response),
-            { correlationId }
-          );
         }
 
         return ch.consume(
@@ -141,10 +166,8 @@ function DefaultEngine (pluginAPI) {
 
     publish:
       async (routingKey, message, options) => {
-        const fanoutExchange = engineOptions.fanoutExchangeName;
         const topicExchange = engineOptions.topicExchangeName;
         await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
-        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
         const publishOptions = _.merge(
           { appId: serviceName },
           options,
@@ -158,23 +181,15 @@ function DefaultEngine (pluginAPI) {
     subscribe:
       async (routingKey, listenFn, options) => {
         const topicExchange = engineOptions.topicExchangeName;
-        const fanoutExchange = engineOptions.fanoutExchangeName;
         const subscribeOptions =  _.merge(
           { appId: serviceName, autoAck: true },
           options,
           { noAck: false }
         );
         await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
-        await ch.assertExchange(fanoutExchange, EXCHANGE_TYPE.FANOUT);
-        // destination, source, pattern
-        await ch.bindExchange(fanoutExchange, topicExchange, routingKey);
-        // This creates a queue per every listen pattern
-        const qPrefix = serviceName !== subscribeOptions.appId ?
-          `${serviceName}_${appId}` :
-          serviceName;
-        const qName = `${qPrefix}_subscribe:${uuid.v4()}`;
+        const qName = `${serviceName}_subscribe`;
         // durable == exclusive to this process + doesn't survive restarts
-        await ch.assertQueue(qName, { durable: false });
+        await ch.assertQueue(qName, { durable: true });
         await ch.bindQueue(qName, topicExchange, routingKey);
 
         function transformMessage (msg) {

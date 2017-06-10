@@ -8,12 +8,12 @@ const { Package, Logging } = BunnyHop.Plugins;
 
 const bus = BunnyHop('TestService')
   .use(Logging)
-  // .use(Package);
+  .use(Package);
 
 setInterval(
   () => {
     bus.send(
-      'cmd.test.doSomething',
+      'cmd.A.B',
       { when: Date.now() },
       {
         // sync: true, // adds 'x-isRPC': true to header. (resolves returned promise with answer or rejects with error)

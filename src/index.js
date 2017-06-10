@@ -63,44 +63,24 @@ function BunnyHop (serviceName, options = {}) {
 
     send: async (routingKey, message, options) => {
       const pm = await pluginManagerPromise;
-      return pm
-        .send(routingKey, message, options)
-        .catch(err => {
-          log.error(`${routingKey} via send failed with: %j`, err);
-          return Promise.reject(err);
-        });
+      return pm.send(routingKey, message, options)
     },
 
     listen: async (routingKey, listenFn, options) => {
       const pm = await pluginManagerPromise;
-      return pm
-        .listen(routingKey, listenFn, options)
-        .catch( err => {
-          log.error(`Failed to consume ${routingKey} via listen.`);
-          log.error(err);
-        });
+      return pm.listen(routingKey, listenFn, options);
     },
 
 
     publish: async (routingKey, message, options) => {
       const pm = await pluginManagerPromise;
-      return pm
-        .publish(routingKey, message, options)
-        .catch( err => {
-          log.error(`Failed to publish ${routingKey} via publish.`);
-          log.error(err);
-        });
+      return pm.publish(routingKey, message, options)
     },
 
 
     async subscribe (routingKey, listenFn, options) {
       const pm = await pluginManagerPromise;
-      return pm
-        .subscribe(routingKey, listenFn, options)
-        .catch( err => {
-          log.error(`Failed to consume ${routingKey} via subscribe.`);
-          log.error(err);
-        });
+      return pm.subscribe(routingKey, listenFn, options);
     }
   };
 }

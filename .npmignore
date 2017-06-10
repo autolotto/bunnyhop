@@ -1,3 +1,5 @@
 # Ignore not transpiled src code
 src
+
 .queues
+npm-debug.log
