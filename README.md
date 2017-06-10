@@ -75,9 +75,10 @@ Top-level options exposed by the [Default Engine](#plugins-and-engines):
 | options | description | default |
 |---------|-------------|---------|
 | errorFormatter | function to format `Error` into JSON | `error => _.pick(error, ['message', 'code', 'details']` |
-| topicExchangeName | The exchange name to use for `publish` | `'amqp.topic'` |
-| directExchangeName | The exchange name to use for `send` | `'amqp.direct'` |
+| topicExchange | The exchange name to use for `publish` | `'amq.topic'` |
+| directExchange | The exchange name to use for `send` | `'amq.direct'` |
 | rpcReplyQueue | The queue to reply to when doing RPC calls via send's `sync: true` option | `'rpcReplyQueue'` |
+| subscriptionQueue | The queue name subscribers of one service share | `${serviceName}_subscription`| 
 
 You can provide custom options when initializing BunnyHop.
 
