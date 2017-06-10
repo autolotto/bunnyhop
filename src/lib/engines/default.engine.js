@@ -21,9 +21,10 @@ function DefaultEngine (pluginAPI) {
 
   const defaults = {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
-    topicExchangeName: 'amq.topic',
-    directExchangeName: 'amq.direct',
-    rpcReplyQueue: `${serviceName}_replies`
+    topicExchange: 'amq.topic',
+    directExchange: 'amq.direct',
+    rpcReplyQueue: `${serviceName}_replies`,
+    subscriptionQueue: `${serviceName}_subscription`
   };
 
   const engineOptions = _.defaults(
@@ -33,19 +34,27 @@ function DefaultEngine (pluginAPI) {
 
   const { deserialize, serialize } = engineOptions.serialization;
 
-  const directExchange = engineOptions.directExchangeName;
+  const {
+    directExchange,
+    topicExchange,
+    subscriptionQueue,
+    rpcReplyQueue
+  } = engineOptions;
+
   log.debug(`Asserting ${EXCHANGE_TYPE.DIRECT} exchange "${directExchange}"`);
   ch.assertExchange(directExchange, EXCHANGE_TYPE.DIRECT);
+  log.debug(`Asserting ${EXCHANGE_TYPE.TOPIC} exchange "${topicExchange}"`);
+  ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
+  log.debug(`Asserting durable queue "${subscriptionQueue}"`);
+  ch.assertQueue(subscriptionQueue, { durable: true });
 
-
-  const REPLY_QUEUE = engineOptions.rpcReplyQueue;
-  ch.responseEmitter = new EventEmitter();
-  ch.responseEmitter.setMaxListeners(0);
-  log.debug(`Asserting durable queue "${REPLY_QUEUE}" for RPC calls.`);
-  ch.assertQueue(REPLY_QUEUE, { durable: true });
-  ch.consume(REPLY_QUEUE,
+  ch.rpcResponseEmitter = new EventEmitter();
+  ch.rpcResponseEmitter.setMaxListeners(0);
+  log.debug(`Asserting durable queue "${rpcReplyQueue}" for RPC calls.`);
+  ch.assertQueue(rpcReplyQueue, { durable: true });
+  ch.consume(rpcReplyQueue,
     msg => {
-      ch.responseEmitter.emit(
+      ch.rpcResponseEmitter.emit(
         msg.properties.correlationId,
         msg.content
       )
@@ -82,9 +91,9 @@ function DefaultEngine (pluginAPI) {
               return !_.isUndefined(error) ? reject(error) : resolve(result);
             };
             // listen for the content emitted on the correlationId event
-            ch.responseEmitter.once(uid, handleResponsePromise);
+            ch.rpcResponseEmitter.once(uid, handleResponsePromise);
             sendWithOptions({
-              replyTo: REPLY_QUEUE,
+              replyTo: rpcReplyQueue,
               correlationId: uid
             });
           })
@@ -106,14 +115,10 @@ function DefaultEngine (pluginAPI) {
         );
         // This creates a queue per every listen pattern
         const qName = routingKey;
-        const directExchange = engineOptions.directExchangeName;
-        log.debug(`Listen: Asserting ${EXCHANGE_TYPE.DIRECT} exchange "${directExchange}"`);
-        await ch.assertExchange(directExchange, EXCHANGE_TYPE.DIRECT);
-        log.debug(`Listen: Asserting durable queue "${qName}"`);
+        log.debug(`Asserting durable queue "${qName}"`);
         await ch.assertQueue(qName, { durable: true });
-        log.debug(`Listen: Binding queue "${qName}" to exchange "${directExchange}" with ${routingKey}`);
+        log.debug(`Binding queue "${qName}" to exchange "${directExchange}" with ${routingKey}`);
         await ch.bindQueue(qName, directExchange, routingKey);
-        log.debug(`Listen: Setting prefetch to 1`);
         await ch.prefetch(1);
 
         async function getResponse(reqMsg) {
@@ -154,7 +159,6 @@ function DefaultEngine (pluginAPI) {
               { correlationId }
             );
           }
-
         }
 
         return ch.consume(
@@ -166,12 +170,10 @@ function DefaultEngine (pluginAPI) {
 
     publish:
       async (routingKey, message, options) => {
-        const topicExchange = engineOptions.topicExchangeName;
-        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
         const publishOptions = _.merge(
           { appId: serviceName },
           options,
-          { persistent: true, noAck: false  }
+          { persistent: true  }
         );
 
         const msgBuffer = serialize(message);
@@ -180,17 +182,13 @@ function DefaultEngine (pluginAPI) {
 
     subscribe:
       async (routingKey, listenFn, options) => {
-        const topicExchange = engineOptions.topicExchangeName;
         const subscribeOptions =  _.merge(
           { appId: serviceName, autoAck: true },
           options,
           { noAck: false }
         );
-        await ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
-        const qName = `${serviceName}_subscribe`;
-        // durable == exclusive to this process + doesn't survive restarts
-        await ch.assertQueue(qName, { durable: true });
-        await ch.bindQueue(qName, topicExchange, routingKey);
+
+        await ch.bindQueue(subscriptionQueue, topicExchange, routingKey);
 
         function transformMessage (msg) {
           if (subscribeOptions.autoAck) {
@@ -212,7 +210,7 @@ function DefaultEngine (pluginAPI) {
         }
 
         return ch.consume(
-          qName,
+          subscriptionQueue,
           transformMessage,
           subscribeOptions
         );
