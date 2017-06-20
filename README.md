@@ -18,20 +18,25 @@ Notice there is no new keyword.
 const bus = BunnyHop('user')
 // This goes out to every service subscribed to 'event.user.created'.
 // If service has multiple processes or instances, only one of the instances picks the message up (round robin)
-bus.publish('event.user.created', {
+bus.publish('event.User.Created', {
     username: 'goku'
 });
 
 // Tell a service listening on 'cmd.payment.create' to do something. `send` is 
 // typically only used for commands, and thus the targer service can reject your command, 
 // or send you back a response.
-bus.send('cmd.payment.create', {
+bus.send('cmd.Payment.Create', {
     card: '4111-1111-1111-111x'
-}).catch((error) => {
-    if (error.code === 'XYZ') {
-        console.log('Card number is invalid');
-    }
 });
+
+/* OR you can make RPC calls with the sync: true option, which return a promise */
+async function sampleRPC () {
+    try {
+        const returnValueFromRemote = await bus.send('cmd.Domain.DoSomething', { sampleData: 1 }, { sync: true })
+    catch (er) {
+        console.error(`${err.message} is an actual error`);
+    }
+}
 ```
 
 ### Process 2
@@ -43,7 +48,7 @@ const bus = BunnyHop('payment')
 const { User, Payment}  = require('./path/to/libs');
 
 // Notice you can't respond back to publisher.
-bus.subscribe('event.user.created', async (message) => {
+bus.subscribe('event.User.Created', async (message) => {
     // Payload is in 'content' property
     const { username } = message.content;
     const user = await User.findByUsername(username);
@@ -52,12 +57,33 @@ bus.subscribe('event.user.created', async (message) => {
     }
 });
 
+/* OR Subscribe to a pattern (Only works for subscribe) */
+bus.subscribe('Event.User.*', () => {}); // Gets 'Event.User.Created' and 'Event.User.Deleted' ...
+bus.subscribe('Event.#', () => {}); // Gets all Events (see Topic Tutorial: https://www.rabbitmq.com/tutorials/tutorial-five-javascript.html)
 
-bus.listen('cmd.payment.create', async (msg) => {
+
+bus.listen('cmd.Payment.Create', async (msg) => {
     // if error is thrown (or promise is rejected), the error gets sent back to the sender
     await Payment.create(msg.content);
     // If you return something, it will make its way back to the sender too
 })
+
+/*
+Or turn OFF auto acknowledgement and manually tell the sender you've received the message.
+autoAck: false adds the `ack()` and `reject()` handles on the message
+*/
+bus.listen('A.B.C', (msg) => {
+    if (something) {
+        // Tell bus you've received the message was successfully processed. Don't Resend.
+        msg.ack();
+    } else {
+        // Delivery wasn't processed but still should be deleted anyway. Maybe validation failed or something.
+       msg.reject()
+    }
+}, { autoAck: false })
+
+// same goes for subscribe
+bus.subscribe('A.*.C', () => {}, { autoAck: false });
 ```
 
 ## Configuration
@@ -283,3 +309,9 @@ Some things to consider for your engine:
 * Asserting Channels, Queues, and Exchanges
 
 For More details, see the default engine in `./lib/engines/default.engine.js`
+
+
+### Structured Handler Registration
+You probably don't want to write your bunnyhop listen and subscribe handlers file for every project, so I've made a helper package to provide some structure and convention around how you define `listen` and `subscribe` handlers.
+
+Check out https://github.com/autolotto/bunnyhop-handler for more details.
