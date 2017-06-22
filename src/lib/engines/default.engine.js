@@ -23,8 +23,7 @@ function DefaultEngine (pluginAPI) {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
     topicExchange: 'amq.topic',
     directExchange: 'amq.direct',
-    rpcReplyQueue: `${serviceName}_replies`,
-    subscriptionQueue: `${serviceName}_subscription`
+    rpcReplyQueue: `${serviceName}_replies`
   };
 
   const engineOptions = _.defaults(
@@ -37,7 +36,6 @@ function DefaultEngine (pluginAPI) {
   const {
     directExchange,
     topicExchange,
-    subscriptionQueue,
     rpcReplyQueue
   } = engineOptions;
 
@@ -45,8 +43,6 @@ function DefaultEngine (pluginAPI) {
   ch.assertExchange(directExchange, EXCHANGE_TYPE.DIRECT);
   log.debug(`Asserting ${EXCHANGE_TYPE.TOPIC} exchange "${topicExchange}"`);
   ch.assertExchange(topicExchange, EXCHANGE_TYPE.TOPIC);
-  log.debug(`Asserting durable queue "${subscriptionQueue}"`);
-  ch.assertQueue(subscriptionQueue, { durable: true });
 
   ch.rpcResponseEmitter = new EventEmitter();
   ch.rpcResponseEmitter.setMaxListeners(0);
@@ -188,7 +184,12 @@ function DefaultEngine (pluginAPI) {
           { noAck: false }
         );
 
-        await ch.bindQueue(subscriptionQueue, topicExchange, routingKey);
+        const qName = `${serviceName}.subscription.${routingKey}`;
+        log.debug(`Asserting durable queue "${qName}"`);
+        await ch.assertQueue(qName, { durable: true });
+
+        log.debug(`Binding queue "${qName}" to routing "${routingKey}"`);
+        await ch.bindQueue(qName, topicExchange, routingKey);
 
         function transformMessage (msg) {
           if (subscribeOptions.autoAck) {
@@ -210,7 +211,7 @@ function DefaultEngine (pluginAPI) {
         }
 
         return ch.consume(
-          subscriptionQueue,
+          qName,
           transformMessage,
           subscribeOptions
         );
