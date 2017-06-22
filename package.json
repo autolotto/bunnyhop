@@ -1,6 +1,6 @@
 {
   "name": "@autolotto/bunnyhop",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "main": "build/index.js",
   "license": "MIT",
   "repository": "https://github.com/autolotto/bunnyhop",
