@@ -23,7 +23,7 @@ function DefaultEngine (pluginAPI) {
     errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
     topicExchange: 'amq.topic',
     directExchange: 'amq.direct',
-    rpcReplyQueue: `${serviceName}_replies`
+    rpcReplyQueue: `${serviceName}_rpc_replies_${uuid()}`
   };
 
   const engineOptions = _.defaults(
@@ -46,17 +46,20 @@ function DefaultEngine (pluginAPI) {
 
   ch.rpcResponseEmitter = new EventEmitter();
   ch.rpcResponseEmitter.setMaxListeners(0);
-  log.debug(`Asserting durable queue "${rpcReplyQueue}" for RPC calls.`);
-  ch.assertQueue(rpcReplyQueue, { durable: true });
-  ch.consume(rpcReplyQueue,
-    msg => {
-      ch.rpcResponseEmitter.emit(
-        msg.properties.correlationId,
-        msg.content
-      )
-    }
-    ,{ noAck: true }
-  );
+
+  // Generate a unique queue for this sender
+  log.debug(`Asserting exclusive queue "${rpcReplyQueue}" for RPC call responses.`);
+  ch.assertQueue(rpcReplyQueue, { exclusive: true })
+    .then(() =>
+      ch.consume(rpcReplyQueue,
+        msg => {
+        ch.rpcResponseEmitter.emit(
+          msg.properties.correlationId,
+          msg.content
+        )
+      }
+      ,{ noAck: true }
+    ));
 
   return {
     send:
@@ -75,8 +78,7 @@ function DefaultEngine (pluginAPI) {
           }
         );
 
-        const sendWithOptions = (opt = {}) =>
-          ch.publish(directExchange, routingKey, msgBuffer, _.merge(commonOptions, opt));
+        const sendWithOptions = (opt = {}) => ch.publish(directExchange, routingKey, msgBuffer, _.merge(commonOptions, opt));
 
         // Response Listen queue
         if (options.sync) {
@@ -96,7 +98,6 @@ function DefaultEngine (pluginAPI) {
         }
 
         sendWithOptions();
-
       },
 
     listen:
