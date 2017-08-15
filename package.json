@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": "https://github.com/autolotto/bunnyhop",
   "scripts": {
-    "release": "yarn build:clean && yarn build && np",
+    "release": "npm run build:clean && npm run build && np",
     "build": "babel src -s -d build --ignore src/example,src/**/*.test.js",
     "build:clean": "rm -rf build",
     "dev": "watch 'npm run build' src",
