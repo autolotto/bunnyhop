@@ -173,7 +173,7 @@ Package repackages  messages, encapsulating the original message as a `.data` pr
 {
     data: { my: 'event' },
     dateIssued:"2017-06-05T19:10:01.945Z",
-    type:"event.domain.sometingHappened"
+    _type:"event.domain.sometingHappened"
 };
 
 
@@ -184,7 +184,7 @@ Package repackages  messages, encapsulating the original message as a `.data` pr
     // date processed is the date the message was observed by the receiving system
     dateProcessed: "2017-06-05T19:10:01.945Z",
     data: { my: 'event' } 
-    type: 'event.domain.somethingHappened'
+    _type: 'event.domain.somethingHappened'
 };
 /**
 Notice How on the receive side, if the message doesn't already have a `dateIssued`, we do not generate one. We do, however, add a `dateProcessed` property.
