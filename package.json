@@ -37,12 +37,12 @@
   },
   "devDependencies": {
     "ava": "^0.19.1",
-    "babel-cli": "^6.24.1",
+    "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.5.2",
-    "babel-register": "^6.24.1",
+    "babel-register": "^6.26.0",
     "bluebird": "^3.5.0",
     "np": "^2.15.0",
-    "testdouble": "^3.0.0",
+    "testdouble": "^3.2.6",
     "watch": "^1.0.2"
   }
 }
