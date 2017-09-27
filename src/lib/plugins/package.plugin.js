@@ -6,19 +6,19 @@ const _ = require('lodash');
 const jsonSerializer = require('../serialization/json');
 
 /**
- * Decorates outgoing messages with dateIssued, _type, and data
+ * Decorates outgoing messages with dateIssued, type and data
  * where data is the payload, dateIssued is the time we're sending the message, and
  * type is the routing key
  *
  * @param {object} message
  * @param {string} routingKey - where the message is going
- * @return {{dateIssued: string, data: object, _type: string}}
+ * @return {{dateIssued: string, data: object, type: string}}
  */
 function packageOutgoingMessage (message, routingKey) {
   return {
     dateIssued: (new Date()).toISOString(),
     data: message,
-    _type: routingKey
+    type: routingKey
   };
 }
 
@@ -35,17 +35,15 @@ function packageIncomingMessage (message, routingKey) {
   const isPrePackaged =
     _.get(message, 'content.data') &&
     _.get(message, 'content.dateIssued') &&
-    _.get(message, 'content._type');
-
-  const data = isPrePackaged ? message.content.data : message.content;
+    _.get(message, 'content.type', _.get(message, 'content._type')); // _type for backwards compat with 2.0.4
 
   // Return a copy of the incoming message with the content modified
   return Object.assign(
     {
       content: {
         dateProcessed: (new Date()).toISOString(),
-        data: _.omit(data, ['_type']),
-        _type: _.get(message, 'fields.routingKey'),
+        data: isPrePackaged ? message.content.data : _.omit(message.content, ['type', '_type']),
+        type: _.get(message, 'fields.routingKey'),
         dateIssued
       }
     },
