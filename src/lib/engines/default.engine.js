@@ -7,6 +7,7 @@ const uuid = require('uuid');
 const { EventEmitter } = require('events');
 
 const { EXCHANGE_TYPE } = require('../amqp');
+const { getRejectedPromiseIfTimedOut } = require('../util');
 
 const log = {
   info: debug('bunnyhop:info:engine'),
@@ -82,7 +83,7 @@ function DefaultEngine (pluginAPI) {
 
         // Response Listen queue
         if (options.sync) {
-          return new Promise(async (resolve, reject) => {
+          const rpcResponsePromise = new Promise(async (resolve, reject) => {
             const uid = options.correlationId || uuid.v4();
             const handleResponsePromise = (msgContent) => {
               const { result, error } = deserialize(msgContent);
@@ -94,7 +95,12 @@ function DefaultEngine (pluginAPI) {
               replyTo: rpcReplyQueue,
               correlationId: uid
             });
-          })
+          });
+
+          // If timeout option is set we want to race the rpc promise resolution with timeout rejection
+          return options.timeoutMs ?
+            Promise.race([rpcResponsePromise, getRejectedPromiseIfTimedOut(options.timeoutMs)]) :
+            rpcResponsePromise;
         }
 
         sendWithOptions();

@@ -7,6 +7,8 @@ const Promise = require('bluebird');
 const test = require('ava');
 const td = require('testdouble');
 
+const { TimeoutError } = require('../util');
+
 test.after(() => {
   td.reset();
 });
@@ -81,6 +83,29 @@ test(`send/listen - with { sync: true } options, should RPC and return a promise
     t.is(error.message, 'Sorry, the world just ended.');
   }
 );
+
+
+test('send/listen - with { timeoutMs: N, sync: true } should reject if the response times out', async t => {
+  const listenFn = async ({ content: { resolveInMs } }) => {
+    await Promise.delay(resolveInMs);
+    return 'SUCCESS';
+  };
+
+  await serviceA_Bus.listen('T.I.M.E', listenFn);
+  const answer = await serviceA_Bus.send('T.I.M.E', { data: 'wow', resolveInMs: 100 }, { sync: true, timeoutMs: 150 });
+  t.is(answer, 'SUCCESS');
+
+  await t.throws(
+    serviceA_Bus.send('T.I.M.E', { resolveInMs: 100 }, { sync: true, timeoutMs: 50 }),
+    TimeoutError,
+    'Should reject with a TimeoutError if RPC listener does not respond within timeoutMs'
+  );
+
+  await t.notThrows(
+    serviceA_Bus.send('T.I.M.E', { resolveInMs: 100 }, { timeoutMs: 50 }),
+    'Should ignore time out if { sync: true } option is not set'
+  );
+});
 
 /*
  ____ __ ______        __ __ ______
