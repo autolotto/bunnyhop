@@ -33,9 +33,26 @@ bus.send('cmd.Payment.Create', {
 async function sampleRPC () {
     try {
         const returnValueFromRemote = await bus.send('cmd.Domain.DoSomething', { sampleData: 1 }, { sync: true })
-    catch (er) {
+    catch (err) {
         console.error(`${err.message} is an actual error`);
     }
+}
+
+
+
+/*
+In order to do a timeout with an RPC call, use the timeoutMs option along with { sync: true }
+NOTE: Timeouts only work for sync calls and will be ignored otherwise
+*/
+
+async sampleTimeoutRPC () {
+  // Timeout if DoSomething doesn't reply within 10 milliseconds
+  try {
+    await bus.send('cmd.Domain.DoSomething', { sampleData: 1}, { sync: true, timeoutMs: 10 })
+  } catch (err) {
+   assert(err.name === 'TimeoutError');
+   assert(err.message === 'Operation Timed Out.');
+  }
 }
 ```
 
