@@ -7,12 +7,15 @@ const _ = require('lodash');
 const debug = require('debug');
 
 const Plugins = require('./lib/plugin');
+<<<<<<< HEAD
 const DefaultEngine = require('./lib/engines/default.engine.js');
 const DefaultConnectionManager = require('./lib/connectionManager');
 const { wrapCompletedHandlers } = require('./lib/util');
+=======
+>>>>>>> Rebased: Add LocalEngine
 const JsonSerialization = require('./lib/serialization/json');
 const BuiltInPlugins = require('./lib/plugins/index');
-
+const BuiltInEngines = require('./lib/engines/index');
 
 const log = {
   info: debug('bunnyhop:info'),
@@ -30,19 +33,18 @@ function BunnyHop (serviceName, options = {}) {
       Note: you can pass in custom options which get exposed through the middleware API
   */
   _.defaults(options, {
+    engine: BuiltInEngines.DefaultEngine,
     url: 'amqp://localhost',
     serialization: JsonSerialization,
-    connectionManager: DefaultConnectionManager,
+    connectionManager: BuiltInEngines.DefaultEngine.ConnectionManager
     /*
     onHandlerError: fn,
     onHandlerSuccess: fn
      */
   });
 
-  let hasCustomEngine = false;
-  let registeredPlugins = [
-    DefaultEngine
-  ];
+  let hasCustomEngine = options.engine !== BuiltInEngines.DefaultEngine;
+  let registeredPlugins = [options.engine];
 
   const pluginManagerPromise = options.connectionManager(options.url)
     .then(({ channel, connection }) => {
@@ -53,10 +55,8 @@ function BunnyHop (serviceName, options = {}) {
 
   return {
     engine: function engine (engine) {
-      if (!hasCustomEngine && _.first(registeredPlugins) === DefaultEngine) {
-        registeredPlugins = [engine, ...registeredPlugins.slice(1)];
-        hasCustomEngine = true;
-      }
+      registeredPlugins = [engine, ...registeredPlugins.slice(1)];
+      hasCustomEngine = true;
       return this;
     },
 
@@ -92,4 +92,5 @@ function BunnyHop (serviceName, options = {}) {
 
 // Expose the built in plugins
 BunnyHop.Plugins = BuiltInPlugins;
+BunnyHop.Engines = BuiltInEngines;
 module.exports = BunnyHop;

@@ -103,6 +103,19 @@ bus.listen('A.B.C', (msg) => {
 bus.subscribe('A.*.C', () => {}, { autoAck: false });
 ```
 
+## Using The Local Engine
+
+The local engine operates WITHOUT RabbitMQ and simply directly calls listeners or subscribers for every send or publish (respectively).
+
+```javascript
+const BunnyHop = require('bunnyhop');
+const LocalEngine = BunnyHop.Engines.LocalEngine;
+
+const bus = BunnyHop('payment', { engine: LocalEngine, connectionManager: LocalEngine.ConnectionManager });
+````
+
+This is often useful to write unit tests for your bunnyhop services!!! 
+
 ## Configuration
 
 Top-level options exposed by BunnyHop

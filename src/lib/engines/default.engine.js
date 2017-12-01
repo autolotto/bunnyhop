@@ -226,4 +226,6 @@ function DefaultEngine (pluginAPI) {
   };
 }
 
+DefaultEngine.ConnectionManager = require('../connectionManager');
+
 module.exports = DefaultEngine;
