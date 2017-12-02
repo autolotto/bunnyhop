@@ -1,7 +1,7 @@
 /**
  * Created by balmasi on 2017-05-31.
  */
-const { snakeCase } = require('lodash');
+const { snakeCase, wrap, isFunction } = require('lodash');
 
 class TimeoutError extends Error {
   constructor(...args) {
@@ -41,8 +41,53 @@ function getRejectedPromiseIfTimedOut (timeoutMs) {
   );
 }
 
+/**
+ * Wraps an onSuccess and onError handler around a function
+ * @param {function} orignalFn
+ * @param {function} [onError]
+ * @param {function} [onSuccess]
+ * @return {*} - returns whatever the original function would have returned
+ */
+const wrapCompletedHandlers = (orignalFn, onError, onSuccess) => (...args) => {
+  let returnVal;
+  const callOnSuccess = (returnVal) => {
+    if (isFunction(onSuccess)) {
+      onSuccess(returnVal, args);
+    }
+  };
+  const callOnError = (error) => {
+    if (isFunction(onError)) {
+      onError(error);
+    }
+  };
+
+  try {
+    returnVal = orignalFn(...args);
+  } catch (err) {
+    // Call error handler on synchronous errors too
+    callOnError(err);
+    throw err;
+  }
+
+  // Is returned value Promise-like?
+  if (returnVal && isFunction(returnVal.then)) {
+    returnVal.then(result => {
+      callOnSuccess(result)
+    })
+    .catch(err => {
+      callOnError(err);
+    });
+  } else {
+    // Just call synchronous success handler
+    callOnSuccess(returnVal);
+  }
+
+  return returnVal;
+};
+
 module.exports = {
   toKeymap,
   getRejectedPromiseIfTimedOut,
+  wrapCompletedHandlers,
   TimeoutError
 };

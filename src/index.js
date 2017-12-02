@@ -9,6 +9,7 @@ const debug = require('debug');
 const Plugins = require('./lib/plugin');
 const DefaultEngine = require('./lib/engines/default.engine.js');
 const DefaultConnectionManager = require('./lib/connectionManager');
+const { wrapCompletedHandlers } = require('./lib/util');
 const JsonSerialization = require('./lib/serialization/json');
 const BuiltInPlugins = require('./lib/plugins/index');
 
@@ -31,9 +32,12 @@ function BunnyHop (serviceName, options = {}) {
   _.defaults(options, {
     url: 'amqp://localhost',
     serialization: JsonSerialization,
-    connectionManager: DefaultConnectionManager
+    connectionManager: DefaultConnectionManager,
+    /*
+    onHandlerError: fn,
+    onHandlerCompleted: fn
+     */
   });
-
 
   let hasCustomEngine = false;
   let registeredPlugins = [
@@ -41,11 +45,11 @@ function BunnyHop (serviceName, options = {}) {
   ];
 
   const pluginManagerPromise = options.connectionManager(options.url)
-      .then(({ channel, connection }) => {
-        const pluginManager = Plugins({ channel, connection, options, serviceName });
-        pluginManager.initalizePlugins(registeredPlugins);
-        return pluginManager;
-      });
+    .then(({ channel, connection }) => {
+      const pluginManager = Plugins({ channel, connection, options, serviceName });
+      pluginManager.initalizePlugins(registeredPlugins);
+      return pluginManager;
+    });
 
   return {
     engine: function engine (engine) {
@@ -66,9 +70,10 @@ function BunnyHop (serviceName, options = {}) {
       return pm.send(routingKey, message, options)
     },
 
-    listen: async (routingKey, listenFn, options) => {
+    listen: async (routingKey, listenFn, listenOptions) => {
       const pm = await pluginManagerPromise;
-      return pm.listen(routingKey, listenFn, options);
+      const handler = wrapCompletedHandlers(listenFn, options.onHanderError, options.onHandlerSuccess);
+      return pm.listen(routingKey, handler, listenOptions);
     },
 
 
@@ -77,10 +82,10 @@ function BunnyHop (serviceName, options = {}) {
       return pm.publish(routingKey, message, options)
     },
 
-
-    async subscribe (routingKey, listenFn, options) {
+    async subscribe (routingKey, subscribeFn, subscribeOptions) {
       const pm = await pluginManagerPromise;
-      return pm.subscribe(routingKey, listenFn, options);
+      const handler = wrapCompletedHandlers(subscribeFn, options.onHanderError, options.onHandlerSuccess);
+      return pm.subscribe(routingKey, handler, subscribeOptions);
     }
   };
 }
