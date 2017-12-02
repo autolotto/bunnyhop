@@ -1,7 +1,7 @@
 /**
  * Created by balmasi on 2017-05-31.
  */
-const { snakeCase, wrap, isFunction } = require('lodash');
+const { snakeCase, isFunction } = require('lodash');
 
 class TimeoutError extends Error {
   constructor(...args) {
@@ -32,7 +32,6 @@ function toKeymap (array = []) {
  * return or resolve within timeoutMs milliseconds
  *
  * @param {number} timeoutMs - milliseconds to wait before rejecting calls
- * @param {function} fn - a function to add timeout behaviour to
  * @returns {function(...[*]): Promise.<*>}
  */
 function getRejectedPromiseIfTimedOut (timeoutMs) {
