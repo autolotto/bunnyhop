@@ -72,7 +72,7 @@ function BunnyHop (serviceName, options = {}) {
 
     listen: async (routingKey, listenFn, listenOptions) => {
       const pm = await pluginManagerPromise;
-      const handler = wrapCompletedHandlers(listenFn, options.onHanderError, options.onHandlerSuccess);
+      const handler = wrapCompletedHandlers(listenFn, options.onHandlerError, options.onHandlerCompleted);
       return pm.listen(routingKey, handler, listenOptions);
     },
 
@@ -84,7 +84,7 @@ function BunnyHop (serviceName, options = {}) {
 
     async subscribe (routingKey, subscribeFn, subscribeOptions) {
       const pm = await pluginManagerPromise;
-      const handler = wrapCompletedHandlers(subscribeFn, options.onHanderError, options.onHandlerSuccess);
+      const handler = wrapCompletedHandlers(subscribeFn, options.onHandlerError, options.onHandlerCompleted);
       return pm.subscribe(routingKey, handler, subscribeOptions);
     }
   };

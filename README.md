@@ -112,6 +112,16 @@ Top-level options exposed by BunnyHop
 | url | AMQP URL to connect to  | `'amqp://localhost'` |
 | serialization | manager to use for serializing and deserializing messages | `require('./lib/serialization/json')` |
 | connectionManager | manager to use for handling connection to AMQP server | `require('./lib/connectionManager')` |
+| onHandlerCompleted| function with signature is onHandlerCompleted({*} Result, {Array<*>} OriginalHandlerArguments) called when listen/subscribe handler completes.| undefined |
+| onHandlerError| function with signature onHandlerError(Error) called when listen/subscribe throws an error/returns rejected promise | undefined |
+
+**Note**
+
+The `onHandlerCompleted` does not affect return values of the handler. It is purely a side effect.
+
+The `onHandlerError` hooks does not affect error bubbling. It is purely a side effect. 
+
+-----------------
 
 Top-level options exposed by the [Default Engine](#plugins-and-engines):
 
