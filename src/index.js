@@ -35,7 +35,7 @@ function BunnyHop (serviceName, options = {}) {
     connectionManager: DefaultConnectionManager,
     /*
     onHandlerError: fn,
-    onHandlerCompleted: fn
+    onHandlerSuccess: fn
      */
   });
 
@@ -72,7 +72,7 @@ function BunnyHop (serviceName, options = {}) {
 
     listen: async (routingKey, listenFn, listenOptions) => {
       const pm = await pluginManagerPromise;
-      const handler = wrapCompletedHandlers(listenFn, options.onHandlerError, options.onHandlerCompleted);
+      const handler = wrapCompletedHandlers(listenFn, options.onHandlerError, options.onHandlerSuccess);
       return pm.listen(routingKey, handler, listenOptions);
     },
 
@@ -84,7 +84,7 @@ function BunnyHop (serviceName, options = {}) {
 
     async subscribe (routingKey, subscribeFn, subscribeOptions) {
       const pm = await pluginManagerPromise;
-      const handler = wrapCompletedHandlers(subscribeFn, options.onHandlerError, options.onHandlerCompleted);
+      const handler = wrapCompletedHandlers(subscribeFn, options.onHandlerError, options.onHandlerSuccess);
       return pm.subscribe(routingKey, handler, subscribeOptions);
     }
   };

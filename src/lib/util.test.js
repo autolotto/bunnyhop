@@ -28,13 +28,13 @@ test('#wrapCompletedHandlers - synchronous functions', t => {
   td.verify(onError(), { ignoreExtraArgs: true, times: 0 });
 
   w(syncFunction, null, onSuccess)(1,2);
-  td.verify(onSuccess(3, [1, 2]));
+  td.verify(onSuccess(3, 1, 2));
 
   t.throws(w(syncFunctionThrows, onError));
   td.verify(onError(new Error('sync error')));
 
   t.is(w(syncFunction, onError, onSuccess)(3,4), 7);
-  td.verify(onSuccess(7, [3, 4]));
+  td.verify(onSuccess(7, 3, 4));
 
   t.throws(
     w(syncFunctionThrows, onError, onSuccess),
@@ -60,13 +60,13 @@ test('#wrapCompletedHandlers - async functions', async t => {
   td.verify(onError(), { ignoreExtraArgs: true, times: 0 });
 
   await w(asyncFunction, null, onSuccess)(1,2);
-  td.verify(onSuccess(3, [1, 2]));
+  td.verify(onSuccess(3, 1, 2));
 
   await t.throws(w(asyncFunctionRejects, onError)());
   td.verify(onError(new Error('async rejection')));
 
   t.is(await w(asyncFunction, onError, onSuccess)(3,4), 7);
-  td.verify(onSuccess(7, [3, 4]));
+  td.verify(onSuccess(7, 3, 4));
 
   await t.throws(
     w(asyncFunctionRejects, onError, onSuccess)(6, 6),

@@ -51,7 +51,7 @@ const wrapCompletedHandlers = (orignalFn, onError, onSuccess) => (...args) => {
   let returnVal;
   const callOnSuccess = (returnVal) => {
     if (isFunction(onSuccess)) {
-      onSuccess(returnVal, args);
+      onSuccess(returnVal, ...args);
     }
   };
   const callOnError = (error) => {
