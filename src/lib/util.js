@@ -48,40 +48,39 @@ function getRejectedPromiseIfTimedOut (timeoutMs) {
  * @return {*} - returns whatever the original function would have returned
  */
 const wrapCompletedHandlers = (orignalFn, onError, onSuccess) => (...args) => {
-  let returnVal;
-  const callOnSuccess = (returnVal) => {
+  const callOnSuccess = (returnValue) => {
     if (isFunction(onSuccess)) {
-      onSuccess(returnVal, ...args);
+      onSuccess(returnValue, ...args);
     }
+    return returnValue;
   };
   const callOnError = (error) => {
     if (isFunction(onError)) {
       onError(error);
+    } else {
+      throw error;
     }
   };
 
+  let returnVal;
+  // Catch synchronous errors
   try {
     returnVal = orignalFn(...args);
   } catch (err) {
     // Call error handler on synchronous errors too
     callOnError(err);
-    throw err;
   }
 
   // Is returned value Promise-like?
   if (returnVal && isFunction(returnVal.then)) {
-    returnVal.then(result => {
-      callOnSuccess(result)
-    })
-    .catch(err => {
-      callOnError(err);
-    });
-  } else {
-    // Just call synchronous success handler
-    callOnSuccess(returnVal);
+    // Run success handler side effects
+    // Make sure to capture and consume the error message on returned value
+    return returnVal.then(callOnSuccess).catch(callOnError);
   }
 
-  return returnVal;
+  // Must be Synchronous - Just call synchronous success handler
+  callOnSuccess(returnVal);
+  return returnVal
 };
 
 module.exports = {

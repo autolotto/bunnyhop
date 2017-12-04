@@ -24,24 +24,20 @@ test('#wrapCompletedHandlers - synchronous functions', t => {
   t.throws(w(syncFunctionThrows), Error, 'sync error', 'should throw synchronous error');
 
   w(syncFunction, onError)(1,2);
+  // Should not call handlers if non is provided
   td.verify(onSuccess(), { ignoreExtraArgs: true, times: 0 });
   td.verify(onError(), { ignoreExtraArgs: true, times: 0 });
 
+  // should call onSuccessHandler if provided
   w(syncFunction, null, onSuccess)(1,2);
   td.verify(onSuccess(3, 1, 2));
 
-  t.throws(w(syncFunctionThrows, onError));
-  td.verify(onError(new Error('sync error')));
-
+  // should still return result even though there's a success handler
   t.is(w(syncFunction, onError, onSuccess)(3,4), 7);
   td.verify(onSuccess(7, 3, 4));
 
-  t.throws(
-    w(syncFunctionThrows, onError, onSuccess),
-    Error,
-    'sync error',
-    'should throw synchronous error'
-  );
+  // Should not throw error if there's an error handler
+  t.notThrows(w(syncFunctionThrows, onError, onSuccess));
   td.verify(onError(new Error('sync error')));
 });
 
@@ -54,7 +50,11 @@ test('#wrapCompletedHandlers - async functions', async t => {
   const onError = td.function('onError');
 
   t.is(await w(asyncFunction)(1,2), 3, 'should still return original value');
-  await t.throws(w(asyncFunctionRejects)(), Error, 'async rejection', 'should throw async error');
+
+  await t.throws(
+    w(asyncFunctionRejects)()
+  );
+
   await w(asyncFunction, onError)(1,2);
   td.verify(onSuccess(), { ignoreExtraArgs: true, times: 0 });
   td.verify(onError(), { ignoreExtraArgs: true, times: 0 });
@@ -62,17 +62,8 @@ test('#wrapCompletedHandlers - async functions', async t => {
   await w(asyncFunction, null, onSuccess)(1,2);
   td.verify(onSuccess(3, 1, 2));
 
-  await t.throws(w(asyncFunctionRejects, onError)());
-  td.verify(onError(new Error('async rejection')));
+  await t.notThrows(w(asyncFunctionRejects, onError)());
 
   t.is(await w(asyncFunction, onError, onSuccess)(3,4), 7);
   td.verify(onSuccess(7, 3, 4));
-
-  await t.throws(
-    w(asyncFunctionRejects, onError, onSuccess)(6, 6),
-    Error,
-    'async rejection',
-    'should throw async error'
-  );
-  td.verify(onError(new Error('async rejection')));
 });
