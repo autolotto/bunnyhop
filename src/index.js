@@ -7,12 +7,7 @@ const _ = require('lodash');
 const debug = require('debug');
 
 const Plugins = require('./lib/plugin');
-<<<<<<< HEAD
-const DefaultEngine = require('./lib/engines/default.engine.js');
-const DefaultConnectionManager = require('./lib/connectionManager');
 const { wrapCompletedHandlers } = require('./lib/util');
-=======
->>>>>>> Rebased: Add LocalEngine
 const JsonSerialization = require('./lib/serialization/json');
 const BuiltInPlugins = require('./lib/plugins/index');
 const BuiltInEngines = require('./lib/engines/index');

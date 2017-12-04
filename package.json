@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "amqplib": "^0.5.1",
-    "bluebird": "^3.5.0",
     "death": "^1.1.0",
     "debug": "^2.6.8",
     "lodash": "^4.17.4",
@@ -41,6 +40,7 @@
     "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.5.2",
     "babel-register": "^6.26.0",
+    "bluebird": "^3.5.0",
     "np": "^2.15.0",
     "testdouble": "^3.2.6",
     "watch": "^1.0.2"

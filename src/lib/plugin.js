@@ -45,7 +45,7 @@ function getpluginAPI (bunnyHopOptions) {
  * @param {{ channel, connection, initialOptions, serviceName }} bunnyHopOptions
  * @return {object} Plugin interface
  */
-function  Plugin (bunnyHopOptions) {
+function Plugin (bunnyHopOptions) {
   const pluginAPI = getpluginAPI(bunnyHopOptions);
   let initializedPlugins;
 
