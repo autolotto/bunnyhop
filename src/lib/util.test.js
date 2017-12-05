@@ -1,15 +1,9 @@
 const test = require('ava');
 const td = require('testdouble');
 
-const { getRejectedPromiseIfTimedOut, TimeoutError, wrapCompletedHandlers } = require('./util');
+const { wrapCompletedHandlers } = require('./util');
 
 test.beforeEach(() => td.reset());
-
-test('#getRejectedPromiseIfTimedOut - Should reject a promise after given milliseconds', async t => {
-  const before = Date.now();
-  await t.throws(getRejectedPromiseIfTimedOut(500), TimeoutError);
-  t.true(Date.now() - before - 500 < 20);
-});
 
 const w = wrapCompletedHandlers;
 test('#wrapCompletedHandlers - synchronous functions', t => {

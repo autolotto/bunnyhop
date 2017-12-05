@@ -83,7 +83,7 @@ function DefaultEngine (pluginAPI) {
 
         // Response Listen queue
         if (options.sync) {
-          const rpcResponsePromise = new Promise(async (resolve, reject) => {
+          return new Promise(async (resolve, reject) => {
             const uid = options.correlationId || uuid.v4();
             const handleResponsePromise = (msgContent) => {
               const { result, error } = deserialize(msgContent);
@@ -96,11 +96,6 @@ function DefaultEngine (pluginAPI) {
               correlationId: uid
             });
           });
-
-          // If timeout option is set we want to race the rpc promise resolution with timeout rejection
-          return options.timeoutMs ?
-            Promise.race([rpcResponsePromise, getRejectedPromiseIfTimedOut(options.timeoutMs)]) :
-            rpcResponsePromise;
         }
 
         sendWithOptions();
