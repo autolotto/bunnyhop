@@ -213,8 +213,9 @@ bus.use(TimeoutPlugin);
 const rpcPromise = bus.send('A.B.doSomething', { some: 'inputData' }, { sync: true, timeoutMs: 500 })
 // after 500 ms, rpcPromise is Rejected with TimeoutError
 ```
-
 If your bunnyhop client RECEIVES the RPC result in less than 500ms, the `rpcPromise` resolves as usual
+
+It is highly recommended to use this as the last plugin in your plugin chain for timing accuracy because other internal middleware may affect response times of your timeouts 
 
 Note that *both the **sync** and **timeoutMs** options have to be set for timeoutes to work*
 
@@ -255,6 +256,9 @@ If you use package on the send AND receive side, the receive side will assume th
 Otherwise, it will use `message.content` as the payload.
 **/
 ```
+
+### Date Parser
+A date parser plugin, which parses date strings into dates for incoming messages, is available in a [standalone repo](https://github.com/autolotto/bunnyhop-plugin-date-parser)
 
 ####  A Note on Plugin Ordering
 The plugin ordering when using `use` matters. Given
