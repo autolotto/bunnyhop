@@ -105,10 +105,13 @@ bus.subscribe('A.*.C', () => {}, { autoAck: false });
 
 ## Configuration
 
-Top-level options exposed by BunnyHop
+You can provide custom options when initializing BunnyHop.
+
+Top-level options exposed by BunnyHop:
 
 | options | description | default |
 |---------|-------------|---------|
+| engine | Another engine to replace the AMQP DefaultEngine | DefaultEngine |
 | url | AMQP URL to connect to  | `'amqp://localhost'` |
 | serialization | manager to use for serializing and deserializing messages | `require('./lib/serialization/json')` |
 | connectionManager | manager to use for handling connection to AMQP server | `require('./lib/connectionManager')` |
@@ -132,7 +135,11 @@ Top-level options exposed by the [Default Engine](#plugins-and-engines):
 | rpcReplyQueue | The queue to reply to when doing RPC calls via send's `sync: true` option | `'rpcReplyQueue'` |
 | subscriptionQueue | The queue name subscribers of one service share | `${serviceName}_subscription`| 
 
-You can provide custom options when initializing BunnyHop.
+Top-level options exposed by the [Local Engine](#plugins-and-engines):
+
+| options | description | default |
+|---------|-------------|---------|
+| | | |
 
 ```javascript
 BunnyHop('service_name', { url: 'amqp://cloud-amqp-provider:1234', customOption: 1 }
@@ -164,21 +171,35 @@ const bus = BunnyHop('my_service')
     .use(Plugin3);
 ```
 
-For defining an engine other than the default engine, use `engine`
+To use another engine, supply the `engine` [configuration parameter](#configuration)
+
+_Legacy Support: You can also use the `engine` function (deprecated):_
 
 ```javascript
 
 const bus = BunnyHop('your_service')
     .use(Plugin1)
-    .engine(CustomEngine)
-
-// ORDER DOES NOT MATTER, YOU CAN ALSO DO
-
-const bus = BunnyHop('your_service')
-    .engine(CustomEngine)
-    .use(Plugin1)
+    .engine(CustomEngine);
 ```
- 
+
+### Included Engines
+
+- DefaultEngine: Sends messages usinq message queues (over AQMP)
+- LocalEngine: Sends messages in local memory by directly calling destination function
+
+#### Using The Local Engine
+
+The local engine operates WITHOUT RabbitMQ and directly calls listeners or subscribers for every send or publish (respectively).
+
+```javascript
+const BunnyHop = require('bunnyhop');
+const LocalEngine = BunnyHop.Engines.LocalEngine;
+
+const bus = BunnyHop('payment', { engine: LocalEngine, connectionManager: LocalEngine.ConnectionManager });
+````
+
+This is often useful to write unit tests for your bunnyhop services!!! 
+
 
 ### Included Plugins
 ##### Correlator
@@ -198,8 +219,8 @@ Package repackages  messages, encapsulating the original message as a `.data` pr
 // BECOMES
 {
     data: { my: 'event' },
-    dateIssued:"2017-06-05T19:10:01.945Z",
-    type:"event.domain.sometingHappened"
+    dateIssued: "2017-06-05T19:10:01.945Z",
+    type: "event.domain.sometingHappened"
 };
 
 
