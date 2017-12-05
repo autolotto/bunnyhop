@@ -15,7 +15,7 @@ const timeoutMiddleware = next => (routingKey, message, options) => {
     originalCallPromise;
 };
 
-module.exports = function (pluginAPI) {
+module.exports = function TimeoutPlugin (pluginAPI) {
   const log = pluginAPI.getPluginLogger();
   log.info('Using Timeout Plugin.');
   return {
