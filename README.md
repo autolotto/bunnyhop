@@ -202,6 +202,22 @@ This is often useful to write unit tests for your bunnyhop services!!!
 
 
 ### Included Plugins
+##### Timeout
+When doing synchronous calls, you can optionally add a timeout rejection if your RPC call is time-sensitive
+
+for example if `doSomething()` returns a resolved promise after 1000ms, but you want to time out the RPC call after 500ms, you can do the following:
+
+```javascript
+bus.use(TimeoutPlugin);
+
+const rpcPromise = bus.send('A.B.doSomething', { some: 'inputData' }, { sync: true, timeoutMs: 500 })
+// after 500 ms, rpcPromise is Rejected with TimeoutError
+```
+
+If your bunnyhop client RECEIVES the RPC result in less than 500ms, the `rpcPromise` resolves as usual
+
+Note that *both the **sync** and **timeoutMs** options have to be set for timeoutes to work*
+
 ##### Correlator
 
 Correlate simply adds a random `.properties.correlationId` (Correlation Identity) property to any outgoing message that do not already have one. This is useful for following messages in logs across services.
