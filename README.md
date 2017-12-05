@@ -202,6 +202,23 @@ This is often useful to write unit tests for your bunnyhop services!!!
 
 
 ### Included Plugins
+##### Timeout
+When doing synchronous calls, you can optionally add a timeout rejection if your RPC call is time-sensitive
+
+for example if `doSomething()` returns a resolved promise after 1000ms, but you want to time out the RPC call after 500ms, you can do the following:
+
+```javascript
+bus.use(TimeoutPlugin);
+
+const rpcPromise = bus.send('A.B.doSomething', { some: 'inputData' }, { sync: true, timeoutMs: 500 })
+// after 500 ms, rpcPromise is Rejected with TimeoutError
+```
+If your bunnyhop client RECEIVES the RPC result in less than 500ms, the `rpcPromise` resolves as usual
+
+It is highly recommended to use this as the last plugin in your plugin chain for timing accuracy because other internal middleware may affect response times of your timeouts 
+
+Note that *both the **sync** and **timeoutMs** options have to be set for timeoutes to work*
+
 ##### Correlator
 
 Correlate simply adds a random `.properties.correlationId` (Correlation Identity) property to any outgoing message that do not already have one. This is useful for following messages in logs across services.
@@ -239,6 +256,9 @@ If you use package on the send AND receive side, the receive side will assume th
 Otherwise, it will use `message.content` as the payload.
 **/
 ```
+
+### Date Parser
+A date parser plugin, which parses date strings into dates for incoming messages, is available in a [standalone repo](https://github.com/autolotto/bunnyhop-plugin-date-parser)
 
 ####  A Note on Plugin Ordering
 The plugin ordering when using `use` matters. Given
