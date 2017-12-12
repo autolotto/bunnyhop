@@ -7,8 +7,6 @@ const Promise = require('bluebird');
 const test = require('ava');
 const td = require('testdouble');
 
-const { TimeoutError } = require('../util');
-
 test.after(() => {
   td.reset();
 });
@@ -123,4 +121,28 @@ test('publish/subscribe - Only one subscriber should get the message per service
 
   t.is(totalServiceAInvocations, 1);
   t.is(totalServiceBInvocations, 1);
+});
+
+
+test('Options - errorFormatter', async t => {
+  // Test default error formatter
+  serviceA_Bus.listen('Q.W.E', async () => { throw new Error('UhOh'); });
+  const defaultError = await t.throws(
+    serviceA_Bus.send('Q.W.E', { input: 'randomStuff' }, { sync: true })
+  );
+
+  t.is(defaultError.name, 'Error');
+  t.is(defaultError.message, 'UhOh');
+  t.is(defaultError.stack && defaultError.stack.constructor.name, 'Array');
+
+  const bh = bunnyhop('customErrorService', { errorFormatter: err => err.code });
+  bh.listen('Z.Y.X', async () => {
+    const e = new Error('UhOh');
+    e.code = 'CUSTOM_CODE';
+    throw e;
+  });
+  const customError = await t.throws(
+    bh.send('Z.Y.X', { input: 'randomStuff' }, { sync: true })
+  );
+  t.is(customError, 'CUSTOM_CODE');
 });

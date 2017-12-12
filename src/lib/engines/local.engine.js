@@ -1,5 +1,3 @@
-const _ = require('lodash');
-
 /*
  * This engine simply calls the locally saved function reference.
  *

@@ -9,7 +9,7 @@
     "build": "babel src -s -d build --ignore src/example,src/**/*.test.js",
     "build:clean": "rm -rf build",
     "dev": "watch 'npm run build' src",
-    "test": "ava -v -T 5000",
+    "test": "ava -v -T 8000",
     "test:watch": "npm run test -- -w"
   },
   "babel": {

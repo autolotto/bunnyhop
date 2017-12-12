@@ -7,7 +7,6 @@ const uuid = require('uuid');
 const { EventEmitter } = require('events');
 
 const { EXCHANGE_TYPE } = require('../amqp');
-const { getRejectedPromiseIfTimedOut } = require('../util');
 
 const log = {
   info: debug('bunnyhop:info:engine'),
@@ -21,15 +20,21 @@ function DefaultEngine (pluginAPI) {
   const serviceName = pluginAPI.getServiceName();
 
   const defaults = {
-    errorFormatter: error => _.pick(error, ['message', 'code', 'details']),
     topicExchange: 'amq.topic',
     directExchange: 'amq.direct',
-    rpcReplyQueue: `${serviceName}_rpc_replies_${uuid()}`
+    rpcReplyQueue: `${serviceName}_rpc_replies_${uuid()}`,
+    errorFormatter: err => {
+      const pickedError = _.pick(err, ['message', 'name', 'stack']);
+      return _.assign(
+        pickedError,
+        { stack: pickedError.stack && pickedError.stack.split('\n') }
+      );
+    }
   };
 
-  const engineOptions = _.defaults(
-    _.clone(initialOptions),
-    defaults
+  const engineOptions = _.merge(
+    _.clone(defaults),
+    initialOptions
   );
 
   const { deserialize, serialize } = engineOptions.serialization;
