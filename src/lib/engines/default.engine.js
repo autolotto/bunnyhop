@@ -24,7 +24,7 @@ function DefaultEngine (pluginAPI) {
     directExchange: 'amq.direct',
     rpcReplyQueue: `${serviceName}_rpc_replies_${uuid()}`,
     errorFormatter: err => {
-      const pickedError = _.pick(err, ['message', 'name', 'stack']);
+      const pickedError = _.pick(err, ['name', 'message', 'name', 'stack']);
       return _.assign(
         pickedError,
         { stack: pickedError.stack && pickedError.stack.split('\n') }
