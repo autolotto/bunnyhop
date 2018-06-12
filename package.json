@@ -29,19 +29,19 @@
     "babel": "inherit"
   },
   "dependencies": {
-    "amqplib": "^0.5.1",
+    "amqplib": "^0.5.2",
     "death": "^1.1.0",
     "debug": "^2.6.8",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.10",
     "uuid": "^3.0.1"
   },
   "devDependencies": {
-    "ava": "^0.19.1",
+    "ava": "^0.25.0",
     "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.5.2",
     "babel-register": "^6.26.0",
-    "bluebird": "^3.5.0",
-    "np": "^2.15.0",
+    "bluebird": "^3.5.1",
+    "np": "^2.20.1",
     "testdouble": "^3.2.6",
     "watch": "^1.0.2"
   }
